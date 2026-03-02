@@ -3,9 +3,12 @@ import { useBookmarksStore } from '@/stores/bookmarks'
 import { useCategoriesStore } from '@/stores/categories'
 import { usePinnedStore } from '@/stores/pinned'
 import { useSyncStore } from '@/stores/sync'
-import { buildSeedData } from '@/data/seed'
 import type { Bookmark } from '@/types'
 import type { Category } from '@/types'
+import { nanoid } from '@/utils/id'
+
+const UNCATEGORIZED_NAME = '未分类'
+const UNCATEGORIZED_NAMES_LEGACY = ['未分类链接', '快捷链接']
 
 const API = {
   bookmarks: '/api/data/bookmarks',
@@ -59,23 +62,21 @@ export function useDataSync() {
     categories.setCategories(categoriesList)
     pinned.setIds(pinnedList)
 
-    const allLoaded = bRes.ok && cRes.ok
-    if (allLoaded && bookmarksList.length === 0 && categoriesList.length === 0) {
-      const { categories: seedCats, bookmarks: seedBms } = buildSeedData()
-      categories.setCategories(seedCats)
-      bookmarks.setBookmarks(seedBms)
-      pinned.setIds([])
-      try {
-        await Promise.all([
-          put(API.categories, seedCats),
-          put(API.bookmarks, seedBms),
-          put(API.pinned, []),
-        ])
-      } catch {
-        // seed 保存失败仅内存展示
+    // 确保始终存在「未分类」分类，以便首页未分类区域显示（兼容旧 KV 或仅含演示分类的数据）
+    const hasUncategorized = categoriesList.some(
+      (c) => c.name === UNCATEGORIZED_NAME || UNCATEGORIZED_NAMES_LEGACY.includes(c.name)
+    )
+    if (!hasUncategorized) {
+      const newCat: Category = {
+        id: nanoid(),
+        name: UNCATEGORIZED_NAME,
+        order: categoriesList.length,
       }
+      categories.setCategories([...categoriesList, newCat])
+      put(API.categories, [...categoriesList, newCat]).catch(() => {})
     }
 
+    // 不再在首次空数据时自动注入演示数据，新部署保持空状态；演示数据请到设置页「加载演示数据」手动加载
     cleanOrphanedPinned()
     } finally {
       syncStore.setIdle()

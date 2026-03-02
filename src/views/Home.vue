@@ -219,7 +219,7 @@ function onSaveCategory(c: Category) {
 async function onDeleteCategory(id: string) {
   const cat = categoriesStore.items.find((c) => c.id === id)
   const isUncategorized =
-    cat?.name === PINNED_ONLY_CATEGORY_NAME || cat?.name === PINNED_ONLY_CATEGORY_NAME_LEGACY
+    cat?.name === PINNED_ONLY_CATEGORY_NAME || (cat ? PINNED_ONLY_CATEGORY_NAMES_LEGACY.includes(cat.name) : false)
   if (!isUncategorized) {
     const targetCategoryId = getOrCreatePinnedOnlyCategory()
     const toMove = bookmarksStore.items.filter((b) => b.categoryId === id)
@@ -637,7 +637,7 @@ async function confirmAutoClassifyApply() {
   }
   let maxOrder = 0
   for (const c of categoriesStore.items) {
-    if (c.name !== PINNED_ONLY_CATEGORY_NAME && c.name !== PINNED_ONLY_CATEGORY_NAME_LEGACY)
+    if (c.name !== PINNED_ONLY_CATEGORY_NAME && !PINNED_ONLY_CATEGORY_NAMES_LEGACY.includes(c.name))
       maxOrder = Math.max(maxOrder, c.order)
   }
   for (const name of newNamesToCreate) {

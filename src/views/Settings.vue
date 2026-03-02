@@ -43,6 +43,27 @@ async function loadDemoData() {
   }
 }
 
+const clearAllConfirm = ref(false)
+const clearAllLoading = ref(false)
+async function clearAllData() {
+  clearAllLoading.value = true
+  try {
+    categoriesStore.setCategories([])
+    bookmarksStore.setBookmarks([])
+    pinnedStore.setIds([])
+    await saveCategories?.()
+    await saveBookmarks?.()
+    await savePinned?.()
+    clearAllConfirm.value = false
+    // 刷新后 useDataSync 会重新拉取，并自动创建「未分类」
+    window.location.reload()
+  } catch (e) {
+    importError.value = e instanceof Error ? e.message : '清空失败'
+  } finally {
+    clearAllLoading.value = false
+  }
+}
+
 const aiBaseUrl = ref('')
 const aiModel = ref('')
 const aiApiKey = ref('')
@@ -400,7 +421,7 @@ function cancelImport() {
         <input ref="importFileInput" type="file" accept=".json,application/json" class="hidden" @change="onImportFile" />
         <p v-if="importError" class="mt-4 text-sm text-red-500 dark:text-red-400">{{ importError }}</p>
         <div class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
-          <p class="text-sm text-slate-600 dark-text-94 mb-3">追加演示用分类与书签（开发、设计、文档、云运维、学习、娱乐等），方便查看首页展示效果。</p>
+          <p class="text-sm text-slate-600 dark-text-94 mb-3">追加演示用分类与书签（开发、设计、文档、云运维、学习、娱乐、未分类等），方便查看首页展示效果。</p>
           <button
             type="button"
             class="px-4 py-2 rounded-xl border-2 border-dashed border-primary text-primary font-medium hover:bg-primary/5 disabled:opacity-50 transition-colors"
@@ -410,6 +431,17 @@ function cancelImport() {
             {{ loadDemoLoading ? '加载中…' : '加载演示数据' }}
           </button>
           <span v-if="loadDemoDone" class="ml-3 text-sm text-green-600 dark:text-green-400">已加载演示数据，请回首页查看</span>
+        </div>
+        <div class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+          <p class="text-sm text-slate-600 dark:text-94 mb-3">清空所有书签、分类与置顶，并同步到云端。清空后刷新页面将只保留一个「未分类」区域。</p>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-xl border-2 border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 font-medium hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
+            :disabled="clearAllLoading"
+            @click="clearAllConfirm = true"
+          >
+            {{ clearAllLoading ? '清空中…' : '清空所有数据' }}
+          </button>
         </div>
       </section>
 
@@ -460,6 +492,29 @@ function cancelImport() {
             <div class="flex justify-end gap-2">
               <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5" @click="cancelImport">取消</button>
               <button type="button" class="px-3 py-1.5 rounded-xl bg-primary text-white font-medium hover:bg-primary/90" @click="confirmImport">确认导入</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+      <Transition name="modal">
+        <div
+          v-if="clearAllConfirm"
+          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          @click.self="clearAllConfirm = false"
+        >
+          <div
+            class="settings-modal-card w-full max-w-sm rounded-xl bg-white dark:bg-slate-900 shadow-xl p-5 border border-slate-200 dark:border-white/20"
+            @click.stop
+          >
+            <h3 class="text-lg font-medium text-slate-800 dark:text-94 mb-2">确认清空</h3>
+            <p class="text-sm text-slate-600 dark:text-94 mb-4">
+              将清空所有书签、分类与置顶，并同步到云端。清空后页面会刷新，仅保留「未分类」区域。此操作不可撤销，是否继续？
+            </p>
+            <div class="flex justify-end gap-2">
+              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark:text-94 hover:bg-slate-200/5 dark:hover:bg-white/5" @click="clearAllConfirm = false">取消</button>
+              <button type="button" class="px-3 py-1.5 rounded-xl bg-red-600 text-white font-medium hover:bg-red-500" :disabled="clearAllLoading" @click="clearAllData">清空</button>
             </div>
           </div>
         </div>

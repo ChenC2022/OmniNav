@@ -28,6 +28,7 @@ const SEED_CATEGORIES: SeedCategoryInput[] = [
   { name: '云与运维', order: 3 },
   { name: '学习', order: 4 },
   { name: '娱乐', order: 5 },
+  { name: '未分类', order: 6 }, // 独立区域，用于未分类书签
 ]
 
 const SEED_BOOKMARKS: SeedBookmarkInput[] = [
