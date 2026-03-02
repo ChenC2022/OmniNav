@@ -1,0 +1,341 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei';
+  /* 紫/蓝/绿渐变风格主色：柔和紫与靛蓝 */
+  --color-primary: #818cf8;
+  --color-primary-hover: #a5b4fc;
+  --color-primary-foreground: #ffffff;
+  --color-glass-bg: rgba(255, 255, 255, 0.08);
+  --color-glass-border: rgba(255, 255, 255, 0.18);
+  --color-glass-bg-light: rgba(255, 255, 255, 0.72);
+  --color-glass-border-light: rgba(0, 0, 0, 0.06);
+}
+
+body {
+  font-family: var(--font-sans);
+  @apply antialiased;
+  color: #0f172a;
+  min-height: 100vh;
+}
+
+/* 浅色：柔和渐变背景 */
+body {
+  background: linear-gradient(160deg, #f0f4ff 0%, #e8eeff 40%, #e0e7ff 70%, #f5f3ff 100%);
+}
+
+/* 深色：紫/蓝/绿 mesh 渐变（Sun-Panel 风格） */
+html.dark body {
+  color: #94A3B8;
+  background: 
+    radial-gradient(ellipse 100% 80% at 20% 0%, rgba(129, 140, 248, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 60% at 80% 20%, rgba(34, 197, 94, 0.15) 0%, transparent 45%),
+    radial-gradient(ellipse 70% 70% at 50% 80%, rgba(59, 130, 246, 0.2) 0%, transparent 50%),
+    linear-gradient(180deg, #0f0f23 0%, #1a1a2e 35%, #16213e 60%, #0d1321 100%);
+  background-attachment: fixed;
+}
+
+/* 深色模式：原 oklch 系（Tailwind slate）文字统一为 #94A3B8 */
+html.dark .text-slate-300,
+html.dark .text-slate-400,
+html.dark .text-slate-500,
+html.dark .text-slate-600 {
+  color: #94A3B8;
+}
+
+/* 深色模式：强制指定为 #94A3B8（OmniNav、时间、常用/分类标题、分类名称等） */
+html.dark .dark-text-94 {
+  color: #94A3B8 !important;
+}
+
+/* 搜索框下拉菜单：完全不透明（浅色/深色一致） */
+.search-dropdown {
+  background-color: #ffffff !important;
+}
+html.dark .search-dropdown {
+  background-color: #0f172a !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+html.dark .search-dropdown-item:hover {
+  background-color: #1e293b !important;
+}
+
+/* 深色模式：「添加到常用」弹窗与输入框与主题一致 */
+html.dark .add-to-pinned-modal {
+  background: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(16px);
+}
+html.dark .add-to-pinned-input {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #e2e8f0 !important;
+}
+html.dark .add-to-pinned-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* 深色模式：搜索框无底色，完全透明 */
+html.dark .search-bar-form,
+html.dark .search-bar-form .search-bar-input,
+html.dark .search-bar-form .search-bar-engine {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+html.dark .search-bar-form .search-bar-input {
+  -webkit-appearance: none;
+  appearance: none;
+  color: #94a3b8 !important;
+}
+html.dark .search-bar-form .search-bar-input::placeholder {
+  color: #94a3b8 !important;
+  opacity: 0.8;
+}
+
+/* 深色模式：模式切换（系统/浅色/深色）容器与未选中的深色按钮无底色 */
+html.dark .theme-switcher-wrap {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+html.dark .theme-switcher-wrap .theme-switcher-btn:not([class*="bg-indigo"]) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* 深色模式：设置页卡片与输入框无白底 */
+html.dark .settings-section-card {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+html.dark .settings-input {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #94A3B8;
+  -webkit-appearance: none;
+  appearance: none;
+}
+html.dark .settings-input::placeholder {
+  color: #94A3B8;
+}
+html.dark .settings-option-label:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+html.dark .settings-dropdown {
+  background: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(10px);
+}
+html.dark .settings-card-inner {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+html.dark .settings-list-item:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+html.dark .settings-modal-card {
+  background: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* 深色模式：AI 对话抽屉与聊天面板（Teleport 到 body，跟随 html.dark） */
+html.dark .drawer-panel {
+  background-color: #0f172a !important;
+  border-left-color: rgba(255, 255, 255, 0.1) !important;
+}
+html.dark .drawer-panel-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+html.dark .drawer-panel-title {
+  color: #94a3b8 !important;
+}
+html.dark .drawer-panel-close {
+  color: #94a3b8 !important;
+}
+html.dark .drawer-panel-close:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+html.dark .chat-panel-wrap {
+  background-color: transparent;
+}
+html.dark .chat-panel-notice {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #fcd34d !important;
+}
+html.dark .chat-panel-notice a {
+  color: #a5b4fc !important;
+}
+html.dark .chat-panel-messages {
+  color: #94a3b8;
+}
+html.dark .chat-panel-form {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  border-top-color: rgba(255, 255, 255, 0.1) !important;
+}
+html.dark .chat-panel-input {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #e2e8f0 !important;
+}
+html.dark .chat-panel-input::placeholder {
+  color: #94a3b8 !important;
+}
+/* 聊天消息区文字与气泡在深色下的颜色 */
+html.dark .chat-panel-empty,
+html.dark .chat-panel .text-slate-500,
+html.dark .chat-panel .text-slate-400 {
+  color: #94a3b8 !important;
+}
+html.dark .chat-panel-avatar.bg-white {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+html.dark .chat-panel-bubble.chat-panel-assistant-bubble,
+html.dark .chat-panel-loading {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #94a3b8 !important;
+}
+html.dark .chat-panel-bubble:not(.chat-panel-assistant-bubble) {
+  color: #e2e8f0 !important;
+}
+html.dark .chat-panel .text-slate-700,
+html.dark .chat-panel .text-slate-200 {
+  color: #e2e8f0 !important;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* 基础玻璃卡片（浅色） */
+.glass {
+  background: var(--color-glass-bg-light);
+  border: 1px solid var(--color-glass-border-light);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+html.dark .glass {
+  background: var(--color-glass-bg);
+  border: 0.5px solid var(--color-glass-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* 半透明玻璃卡片：blur(10px)、0.5px 白边、16px 圆角（Sun-Panel 风格） */
+.glass-translucent {
+  background: var(--color-glass-bg-light);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--color-glass-border-light);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+html.dark .glass-translucent {
+  background: rgba(255, 255, 255, 0.06);
+  border: 0.5px solid var(--color-glass-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+/* 弹层/搜索框等更强模糊 */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-glass-border-light);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+html.dark .glass-effect {
+  background: rgba(255, 255, 255, 0.06);
+  border: 0.5px solid var(--color-glass-border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* 卡片 hover：轻微放大 + 提亮 */
+.card-hover {
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.card-hover:hover {
+  transform: scale(1.03);
+  filter: brightness(1.08);
+}
+html.dark .card-hover:hover {
+  filter: brightness(1.15);
+}
+
+.selection-highlight {
+  background: rgba(129, 140, 248, 0.2);
+  border-left: 3px solid var(--color-primary);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+/* 深色模式：所有 custom-scrollbar 轨道与滑块统一风格 */
+html.dark .custom-scrollbar {
+  scrollbar-color: #475569 #1e293b;
+}
+html.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+/* ========== 过渡动画（Phase 8） ========== */
+
+/* 通用 modal：遮罩淡入淡出（Settings 确认导入等） */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease-out;
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+/* 首页「添加到常用」弹窗：遮罩 + 面板缩放 */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease-out;
+}
+.modal-fade-enter-active .modal-fade-panel,
+.modal-fade-leave-active .modal-fade-panel {
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+}
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+.modal-fade-enter-from .modal-fade-panel,
+.modal-fade-leave-to .modal-fade-panel {
+  transform: scale(0.96);
+  opacity: 0.85;
+}
+
+/* 右键菜单等小浮层：快速淡入 + 微缩放 */
+.menu-pop-enter-active,
+.menu-pop-leave-active {
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+}
+.menu-pop-enter-from,
+.menu-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}

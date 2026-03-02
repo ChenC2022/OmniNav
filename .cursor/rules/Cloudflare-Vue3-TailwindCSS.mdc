@@ -1,0 +1,28 @@
+---
+alwaysApply: true
+---
+
+技术栈: Vue 3 + Tailwind CSS v4 + Hono + D1 + R2 + KV
+Cloudflare 开发规范 (Cloudflare Development Standards)
+框架选择：优先使用 Hono 框架编写路由逻辑。
+代码风格：使用 ES Modules 模式 (export default) 和 TypeScript。
+资源访问：
+所有 KV/D1/R2 资源必须通过 env 绑定访问。
+命名需符合：KV -> KV_xxx, D1 -> DB, R2 -> BUCKET_xxx。
+尽量不使用R2资源。如果必须使用需要向用户说明。
+防御性编程：
+必须处理 env 资源未定义的情况。
+API 返回必须包含状态码和标准的 JSON 结构。
+本地开发：
+依赖 wrangler dev 进行测试。
+敏感配置提示使用 .dev.vars 或 wrangler secret。
+性能优化：
+避免在全局作用域进行重型初始化，尽量放在 fetch 内部或利用全局变量做单例缓存。
+对于非阻塞任务（如写日志），使用 ctx.waitUntil()。
+避坑经验
+1.静态资源与 API 路由冲突
+现象: 访问首页直接返回了 API 的 JSON，而没有展示 Vue 页面。
+解决方案: 根路径 / 的 Hono 路由会拦截静态文件。正确做法是将 API 移动到 functions/api/ 子目录下，并将 Hono 的 basePath 设为 /api。
+2.Tailwind CSS v4 的新特性
+v4 版本不再需要复杂的 tailwind.config.js 配置文件，直接在 CSS 中使用 @theme 定义变量。
+需要安装 @tailwindcss/postcss 插件来配合 Vite 编译。
