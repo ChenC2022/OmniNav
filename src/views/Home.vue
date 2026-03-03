@@ -4,7 +4,7 @@ import { onClickOutside } from '@vueuse/core'
 import draggable from 'vuedraggable'
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { useCategoriesStore } from '@/stores/categories'
-import { usePinnedStore, MAX_PINNED } from '@/stores/pinned'
+import { usePinnedStore } from '@/stores/pinned'
 import type { Bookmark, Category } from '@/types'
 import BookmarkIcon from '@/components/bookmark/BookmarkIcon.vue'
 import CategoryCard from '@/components/category/CategoryCard.vue'
@@ -71,10 +71,6 @@ watch(pinnedBookmarks, (v) => { pinnedList.value = [...v] }, { immediate: true }
 /** 编辑布局：开启后常用区卡片才可拖拽排序，且支持从分类拖入常用 */
 const isEditLayout = ref(false)
 
-/** 递增以通知各分类卡片重新从 store 同步列表（拖入常用后原分类列表恢复显示该书签） */
-const categoryListsVersion = ref(0)
-provide('categoryListsVersion', categoryListsVersion)
-
 /** 分类区块标题栏：设置菜单（检查链接 / 新建分类） */
 const categorySectionSettingsOpen = ref(false)
 const categorySectionSettingsRef = ref<HTMLElement | null>(null)
@@ -84,14 +80,12 @@ function closeCategorySectionSettings() {
 }
 onClickOutside(categorySectionSettingsRef, closeCategorySectionSettings, { ignore: [categorySectionSettingsTriggerRef] })
 
-/** 可添加到常用的书签（未在常用区且未达上限） */
+/** 可添加到常用的书签（未在常用区的书签，数量不设上限） */
 const addableBookmarks = computed(() => {
   const pinnedSet = new Set(pinnedStore.ids)
-  const max = 16
-  if (pinnedSet.size >= max) return []
   return bookmarksStore.items
     .filter((b) => !pinnedSet.has(b.id))
-    .slice(0, 80)
+    .slice(0, 200)
 })
 
 const addToPinnedOpen = ref(false)
@@ -111,7 +105,6 @@ const addableBookmarksFiltered = computed(() => {
 })
 
 function openAddToPinned() {
-  if (pinnedStore.ids.length >= MAX_PINNED) return
   addToPinnedFilter.value = ''
   newLinkTitle.value = ''
   newLinkUrl.value = ''
@@ -196,16 +189,6 @@ onClickOutside(addToPinnedRef, closeAddToPinned)
 async function onPinnedDragEnd() {
   pinnedStore.reorder(pinnedList.value.map((b) => b.id))
   await savePinned?.()
-}
-
-/** 常用区列表 change：若从分类拖入则加入 pinned 并通知分类列表重同步 */
-function onPinnedListChange(evt: { added?: { element: Bookmark }; from: HTMLElement; to: HTMLElement }) {
-  if (!evt.added || evt.from === evt.to) return
-  const bookmark = evt.added.element
-  if (!bookmark?.id) return
-  pinnedStore.add(bookmark.id)
-  savePinned?.()
-  categoryListsVersion.value++
 }
 
 const categoryFormOpen = ref(false)
@@ -794,40 +777,43 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           </span>
         </label>
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 md:gap-4">
-        <draggable
-          v-model="pinnedList"
-          item-key="id"
-          :group="{ name: 'bookmarks', put: isEditLayout && pinnedBookmarks.length < MAX_PINNED }"
-          class="contents"
-          ghost-class="opacity-50"
-          :disabled="!isEditLayout"
-          @end="onPinnedDragEnd"
-          @change="onPinnedListChange"
-        >
+      <!-- 常用区块容器：与未分类等区域块形态一致，块内保留大图标网格；最多展示约 16 个可见，超出滚动；深色模式使用专用配色 -->
+      <div class="pinned-section rounded-2xl border border-slate-200/60 dark:border-white/10 bg-white/50 p-4 md:p-5">
+        <div class="max-h-[14rem] overflow-y-auto overflow-x-hidden min-h-0 custom-scrollbar">
+          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 md:gap-4">
+          <draggable
+            v-model="pinnedList"
+            item-key="id"
+            :group="{ name: 'pinned-only', pull: false, put: false }"
+            :handle="isEditLayout ? '.bookmark-drag-handle' : undefined"
+            class="contents"
+            ghost-class="opacity-50"
+            :disabled="!isEditLayout"
+            @end="onPinnedDragEnd"
+          >
           <template #item="{ element }">
             <div
               v-if="element"
-              class="glass-translucent rounded-2xl p-4 card-hover cursor-context-menu"
+              class="pinned-card glass-translucent rounded-2xl p-4 card-hover cursor-context-menu flex items-center gap-1.5 min-w-0"
               @contextmenu.prevent="openPinnedContextMenu($event, element)"
             >
-              <BookmarkIcon :bookmark="element" size="lg" :show-title="true" class="!p-0" />
+              <span
+                v-if="isEditLayout"
+                class="bookmark-drag-handle shrink-0 flex items-center justify-center w-5 h-5 cursor-grab active:cursor-grabbing text-slate-400 dark:text-slate-500 touch-none"
+                title="拖拽以移动"
+                aria-label="拖拽以移动"
+              >
+                <span class="material-symbols-outlined text-xl leading-none block">drag_indicator</span>
+              </span>
+              <BookmarkIcon :bookmark="element" size="lg" :show-title="true" class="!p-0 min-w-0 flex-1" />
             </div>
           </template>
         </draggable>
-        <button
-          v-if="pinnedBookmarks.length < MAX_PINNED"
-          type="button"
-          class="flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl glass-translucent border-2 border-dashed border-slate-300/70 dark:border-white/20 text-slate-400 dark-text-94 hover:border-indigo-400/50 hover:text-indigo-500 dark:hover:border-indigo-400/50 dark:hover:text-indigo-400 transition-colors cursor-pointer min-h-[5rem]"
-          :title="`添加新链接或从书签中选择（最多 ${MAX_PINNED} 个）`"
-          @click="openAddToPinned"
-        >
-          <span class="material-symbols-outlined text-2xl">add</span>
-          <span class="text-xs font-semibold">Add</span>
-        </button>
+          </div>
+        </div>
       </div>
       <p v-if="pinnedBookmarks.length === 0" class="text-sm text-slate-500 dark:text-white/90 mt-4">
-        点击「Add」添加新链接，或从分类书签中拖到此处置顶（最多 {{ MAX_PINNED }} 个）
+        暂无常用，可通过分类内书签右键「添加到常用」添加；开启「编辑布局」后可拖拽调整顺序
       </p>
     </section>
 
@@ -886,6 +872,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
       <draggable
         v-model="categoriesList"
         item-key="id"
+        :handle="isEditLayout ? '.category-drag-handle' : undefined"
         :class="USE_COLUMN_LAYOUT
           ? 'columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 [column-gap:1rem]'
           : 'grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))] items-start'"

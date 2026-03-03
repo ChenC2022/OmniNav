@@ -35,7 +35,6 @@ const bookmarksStore = useBookmarksStore()
 const saveBookmarks = inject<() => Promise<void>>('saveBookmarks')
 const savePinned = inject<() => Promise<void>>('savePinned')
 const runCheckAndCleanupForCategory = inject<(categoryId: string) => void>('runCheckAndCleanupForCategory')
-const categoryListsVersion = inject<{ value: number }>('categoryListsVersion')
 const pinnedStore = usePinnedStore()
 const privateStore = usePrivateCategoriesStore()
 
@@ -76,10 +75,6 @@ const canDeleteCategory = computed(() => !hasPinnedInCategory.value)
 
 const list = ref<Bookmark[]>([])
 watch(bookmarksInCategory, (v) => { list.value = [...v] }, { immediate: true })
-// 从常用区拖入后首页会递增 version，此处重同步以恢复分类内列表显示
-if (categoryListsVersion) {
-  watch(() => categoryListsVersion.value, () => { list.value = [...bookmarksInCategory.value] })
-}
 
 const formOpen = ref(false)
 const editingBookmark = ref<Bookmark | null>(null)
@@ -114,7 +109,7 @@ function onDragEnd() {
   saveBookmarks?.()
 }
 
-/** 跨分类拖入：将当前 list 中所有书签归属到本分类并重排 order */
+/** 跨分类拖入：将当前 list 中所有书签归属到本分类并重排 order；拖出到另一分类后从 store 恢复 list */
 function onListChange(evt: { added?: { element: Bookmark; newIndex: number }; removed?: { element: Bookmark; oldIndex: number } }) {
   if (evt.added) {
     list.value.forEach((b, i) => bookmarksStore.updateBookmark(b.id, { categoryId: props.category.id, order: i }))
@@ -123,6 +118,7 @@ function onListChange(evt: { added?: { element: Bookmark; newIndex: number }; re
   if (evt.removed) {
     list.value.forEach((b, i) => bookmarksStore.updateBookmark(b.id, { order: i }))
     saveBookmarks?.()
+    nextTick(() => { list.value = [...bookmarksInCategory.value] })
   }
 }
 
@@ -211,7 +207,7 @@ defineExpose({ openAdd })
 
 <template>
   <div
-    class="group card-root glass-translucent rounded-2xl p-6 relative overflow-hidden card-hover"
+    class="group card-root glass-translucent rounded-2xl p-2 relative overflow-hidden card-hover"
   >
     <template v-if="!showContent">
       <div class="absolute inset-0 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md z-10 flex flex-col items-center justify-center p-6 text-center">
@@ -320,30 +316,39 @@ defineExpose({ openAdd })
         </div>
       </Transition>
     </Teleport>
-    <!-- 非 hideTitle 时显示分类标题行 -->
+    <!-- 非 hideTitle 时显示分类标题行；编辑布局下标题前显示分类块拖拽把手 -->
     <div
       v-if="!hideTitle"
-      class="flex items-center justify-between mb-6 pr-24"
+      class="flex items-center justify-between mb-6 pl-2 pr-24"
     >
       <h3
-        class="font-bold flex items-center gap-2 text-slate-800 dark-text-94"
+        class="font-bold flex items-center gap-1.5 min-w-0 text-slate-800 dark-text-94"
         :title="category.description ?? undefined"
       >
-        <span v-if="category.isPrivate" class="material-symbols-outlined text-indigo-400 text-lg">lock</span>
-        {{ category.name }}
+        <span
+          v-if="editLayout"
+          class="category-drag-handle shrink-0 flex items-center justify-center w-5 h-5 cursor-grab active:cursor-grabbing text-slate-400 dark:text-slate-500 touch-none"
+          title="拖拽以移动分类"
+          aria-label="拖拽以移动分类"
+        >
+          <span class="material-symbols-outlined text-xl leading-none block">drag_indicator</span>
+        </span>
+        <span v-if="category.isPrivate" class="material-symbols-outlined text-indigo-400 text-lg shrink-0">lock</span>
+        <span class="truncate">{{ category.name }}</span>
       </h3>
     </div>
     <!-- 书签网格：未分类（hideTitle）为自适应列数，分类卡片为 2 列；限制高度约 10 行，超出可滚动 -->
     <div
       :class="[
         hideTitle ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,7rem),1fr))] gap-2' : '',
-        'max-h-[30rem] overflow-y-auto overflow-x-hidden min-h-0 custom-scrollbar'
+        'max-h-[30rem] overflow-y-auto min-h-0 custom-scrollbar'
       ]"
     >
       <draggable
         v-model="list"
         item-key="id"
         group="bookmarks"
+        :handle="editLayout ? '.bookmark-drag-handle' : undefined"
         :class="hideTitle ? 'contents' : 'grid grid-cols-2 gap-2'"
         ghost-class="opacity-50"
         :disabled="!editLayout"
@@ -352,10 +357,18 @@ defineExpose({ openAdd })
       >
         <template #item="{ element }">
           <div
-            class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden p-2 -mx-2 rounded-xl hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors cursor-context-menu"
+            class="flex items-center gap-1 min-w-0 flex-1 overflow-hidden p-2 rounded-xl hover:bg-slate-400/30 dark:hover:bg-white/5 transition-colors cursor-context-menu"
             @contextmenu.prevent="(e) => openContextMenu(e, element)"
           >
-            <BookmarkIcon :bookmark="element" show-title size="sm" :not-draggable="editLayout" class="!p-0 !min-w-0 flex-1 flex-row gap-2 min-w-0" />
+            <span
+              v-if="editLayout"
+              class="bookmark-drag-handle shrink-0 flex items-center justify-center w-5 h-5 cursor-grab active:cursor-grabbing text-slate-400 dark:text-slate-500 touch-none"
+              title="拖拽以移动"
+              aria-label="拖拽以移动"
+            >
+              <span class="material-symbols-outlined text-xl leading-none block">drag_indicator</span>
+            </span>
+            <BookmarkIcon :bookmark="element" show-title size="md" :not-draggable="editLayout" :no-hover-bg="true" class="!p-0 !min-w-0 flex-1 flex-row gap-2 min-w-0" />
           </div>
         </template>
       </draggable>

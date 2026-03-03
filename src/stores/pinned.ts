@@ -12,7 +12,7 @@ export const usePinnedStore = defineStore('pinned', () => {
 
   function add(id: string) {
     if (ids.value.includes(id)) return
-    ids.value = [...ids.value, id].slice(0, MAX_PINNED)
+    ids.value = [...ids.value, id]
   }
 
   function remove(id: string) {
@@ -20,7 +20,7 @@ export const usePinnedStore = defineStore('pinned', () => {
   }
 
   function reorder(orderedIds: string[]) {
-    ids.value = orderedIds.slice(0, MAX_PINNED)
+    ids.value = [...orderedIds]
   }
 
   function toggle(id: string) {

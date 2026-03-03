@@ -11,8 +11,10 @@ const props = withDefaults(
     size?: 'sm' | 'md' | 'lg'
     /** 为 true 时禁用链接默认拖拽，便于父级列表项参与 sortable 拖拽（如编辑布局下分类内书签） */
     notDraggable?: boolean
+    /** 为 true 时不显示链接自身的 hover 背景（由父级列表项统一提供 hover，避免双重高亮） */
+    noHoverBg?: boolean
   }>(),
-  { notDraggable: false }
+  { notDraggable: false, noHoverBg: false }
 )
 
 defineEmits<{
@@ -82,40 +84,45 @@ function onIconError() {
     target="_blank"
     rel="noopener noreferrer"
     :draggable="!notDraggable"
-    class="flex flex-col items-center gap-2 rounded-xl p-3 min-w-[4rem] hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors duration-200 group text-slate-600 dark:text-white cursor-pointer"
+    :class="[
+      'flex flex-col items-center gap-2 rounded-xl p-3 min-w-[4rem] transition-colors duration-200 group text-slate-600 dark:text-white cursor-pointer',
+      !noHoverBg && 'hover:bg-slate-200/5 dark:hover:bg-white/5'
+    ]"
     :title="bookmark.description || bookmark.title"
   >
-    <img
-      v-if="iconStage !== 'letter'"
-      :src="currentSrc"
-      :alt="''"
-      :width="iconSize"
-      :height="iconSize"
-      class="rounded-lg flex-shrink-0 transition-all object-contain"
-      :class="healthClass"
-      @error="onIconError"
-    />
-    <div
-      v-else
-      class="rounded-lg flex-shrink-0 flex items-center justify-center bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold transition-all"
-      :class="healthClass"
-      :style="{ width: `${iconSize}px`, height: `${iconSize}px`, fontSize: iconSize * 0.5 + 'px' }"
-    >
-      {{ fallbackLetter }}
-    </div>
-    <span
-      v-if="showTitle !== false"
-      class="inline-flex items-center gap-1.5 max-w-full"
-      :class="size === 'sm' ? 'min-w-0 text-left' : 'justify-center max-w-[6rem]'"
-    >
-      <span class="text-xs font-semibold truncate min-w-0">{{ bookmark.title }}</span>
+    <div class="relative shrink-0">
+      <img
+        v-if="iconStage !== 'letter'"
+        :src="currentSrc"
+        :alt="''"
+        :width="iconSize"
+        :height="iconSize"
+        class="rounded-lg transition-all object-contain"
+        :class="healthClass"
+        @error="onIconError"
+      />
+      <div
+        v-else
+        class="rounded-lg flex items-center justify-center bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold transition-all"
+        :class="healthClass"
+        :style="{ width: `${iconSize}px`, height: `${iconSize}px`, fontSize: iconSize * 0.5 + 'px' }"
+      >
+        {{ fallbackLetter }}
+      </div>
       <span
         v-if="showHealthDot"
-        class="shrink-0 w-1.5 h-1.5 rounded-full"
+        class="absolute top-0 right-0 w-2 h-2 rounded-full translate-x-1/2 -translate-y-1/2"
         :class="[healthDotClass, isChecking && 'health-dot-checking']"
         :title="isChecking ? '检测中…' : (bookmark.health === 'ok' ? '链接正常' : bookmark.health === 'warn' ? '链接异常' : '链接失效')"
         aria-hidden
       />
+    </div>
+    <span
+      v-if="showTitle !== false"
+      class="inline-flex items-center max-w-full min-w-0"
+      :class="size === 'sm' ? 'text-left w-full' : 'justify-center max-w-[6rem]'"
+    >
+      <span class="text-xs font-semibold truncate min-w-0 flex-1">{{ bookmark.title }}</span>
     </span>
   </a>
 </template>
