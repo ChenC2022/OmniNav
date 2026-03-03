@@ -16,6 +16,8 @@ export interface Bookmark {
 export interface Category {
   id: string
   name: string
+  /** 分类说明，选填；可用于 AI 自动归类时的判断依据，悬浮于分类名时显示 */
+  description?: string
   order: number
   isPrivate?: boolean
   passwordHint?: string

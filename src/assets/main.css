@@ -48,6 +48,46 @@ html.dark .dark-text-94 {
   color: #94A3B8 !important;
 }
 
+/* 搜索框模式标签：药丸形，图标+文字，与主题主色一致 */
+/* 网页模式：淡靛蓝，与书签模式同色系、略浅 */
+.search-mode-tag--web {
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.08);
+}
+.search-mode-tag--web:hover {
+  background: rgba(99, 102, 241, 0.14);
+  color: #4338ca;
+}
+.search-mode-tag--bookmark {
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.12);
+}
+.search-mode-tag--bookmark:hover {
+  background: rgba(99, 102, 241, 0.2);
+  color: #4338ca;
+}
+/* 深色：网页与书签统一为 primary 色系 */
+html.dark .search-mode-tag--web {
+  border-color: rgba(129, 140, 248, 0.35);
+  color: #a5b4fc;
+  background: rgba(129, 140, 248, 0.1);
+}
+html.dark .search-mode-tag--web:hover {
+  background: rgba(129, 140, 248, 0.18);
+  color: #c7d2fe;
+}
+html.dark .search-mode-tag--bookmark {
+  border-color: rgba(129, 140, 248, 0.45);
+  color: #a5b4fc;
+  background: rgba(129, 140, 248, 0.15);
+}
+html.dark .search-mode-tag--bookmark:hover {
+  background: rgba(129, 140, 248, 0.25);
+  color: #c7d2fe;
+}
+
 /* 搜索框下拉菜单：完全不透明（浅色/深色一致） */
 .search-dropdown {
   background-color: #ffffff !important;
@@ -338,4 +378,20 @@ html.dark .custom-scrollbar::-webkit-scrollbar-track {
 .menu-pop-leave-to {
   opacity: 0;
   transform: scale(0.95);
+}
+
+/* 书签有效性检测时状态点闪烁 */
+@keyframes health-dot-blink {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    opacity: 0.4;
+    box-shadow: 0 0 0 3px currentColor;
+  }
+}
+.health-dot-checking {
+  animation: health-dot-blink 0.8s ease-in-out infinite;
 }

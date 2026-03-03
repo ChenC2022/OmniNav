@@ -1,4 +1,5 @@
 import { useBookmarksStore } from '@/stores/bookmarks'
+import { useHealthCheckStore } from '@/stores/healthCheck'
 import type { Bookmark } from '@/types'
 
 export async function checkBookmarkHealth(url: string): Promise<'ok' | 'warn' | 'error'> {
@@ -13,17 +14,28 @@ export async function checkBookmarkHealth(url: string): Promise<'ok' | 'warn' | 
 
 export function useHealthCheck() {
   const bookmarksStore = useBookmarksStore()
+  const healthCheckStore = useHealthCheckStore()
 
   async function checkAll() {
     for (const b of bookmarksStore.items) {
-      const health = await checkBookmarkHealth(b.url)
-      bookmarksStore.updateBookmark(b.id, { health })
+      healthCheckStore.currentCheckingBookmarkId = b.id
+      try {
+        const health = await checkBookmarkHealth(b.url)
+        bookmarksStore.updateBookmark(b.id, { health })
+      } finally {
+        healthCheckStore.currentCheckingBookmarkId = null
+      }
     }
   }
 
   async function checkOne(bookmark: Bookmark) {
-    const health = await checkBookmarkHealth(bookmark.url)
-    bookmarksStore.updateBookmark(bookmark.id, { health })
+    healthCheckStore.currentCheckingBookmarkId = bookmark.id
+    try {
+      const health = await checkBookmarkHealth(bookmark.url)
+      bookmarksStore.updateBookmark(bookmark.id, { health })
+    } finally {
+      healthCheckStore.currentCheckingBookmarkId = null
+    }
   }
 
   return { checkAll, checkOne }

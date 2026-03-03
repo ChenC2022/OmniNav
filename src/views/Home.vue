@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, inject, provide, ref, watch, onMounted, onUnmounted } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import draggable from 'vuedraggable'
 import { useBookmarksStore } from '@/stores/bookmarks'
@@ -25,14 +25,7 @@ const saveBookmarks = inject<() => Promise<void>>('saveBookmarks')
 const saveCategories = inject<() => Promise<void>>('saveCategories')
 const savePinned = inject<() => Promise<void>>('savePinned')
 const pinnedStore = usePinnedStore()
-const { checkAll, checkOne } = useHealthCheck()
-const checking = ref(false)
-async function runHealthCheck() {
-  checking.value = true
-  await checkAll()
-  saveBookmarks?.()
-  checking.value = false
-}
+const { checkOne } = useHealthCheck()
 const dailyQuote = ref('')
 onMounted(() => {
   dailyQuote.value = getRandomQuote()
@@ -75,8 +68,21 @@ const categoriesForGrid = computed(() =>
 const pinnedList = ref<Bookmark[]>([])
 watch(pinnedBookmarks, (v) => { pinnedList.value = [...v] }, { immediate: true })
 
-/** 编辑布局：开启后常用区卡片才可拖拽排序 */
+/** 编辑布局：开启后常用区卡片才可拖拽排序，且支持从分类拖入常用 */
 const isEditLayout = ref(false)
+
+/** 递增以通知各分类卡片重新从 store 同步列表（拖入常用后原分类列表恢复显示该书签） */
+const categoryListsVersion = ref(0)
+provide('categoryListsVersion', categoryListsVersion)
+
+/** 分类区块标题栏：设置菜单（检查链接 / 新建分类） */
+const categorySectionSettingsOpen = ref(false)
+const categorySectionSettingsRef = ref<HTMLElement | null>(null)
+const categorySectionSettingsTriggerRef = ref<HTMLElement | null>(null)
+function closeCategorySectionSettings() {
+  categorySectionSettingsOpen.value = false
+}
+onClickOutside(categorySectionSettingsRef, closeCategorySectionSettings, { ignore: [categorySectionSettingsTriggerRef] })
 
 /** 可添加到常用的书签（未在常用区且未达上限） */
 const addableBookmarks = computed(() => {
@@ -192,6 +198,16 @@ async function onPinnedDragEnd() {
   await savePinned?.()
 }
 
+/** 常用区列表 change：若从分类拖入则加入 pinned 并通知分类列表重同步 */
+function onPinnedListChange(evt: { added?: { element: Bookmark }; from: HTMLElement; to: HTMLElement }) {
+  if (!evt.added || evt.from === evt.to) return
+  const bookmark = evt.added.element
+  if (!bookmark?.id) return
+  pinnedStore.add(bookmark.id)
+  savePinned?.()
+  categoryListsVersion.value++
+}
+
 const categoryFormOpen = ref(false)
 const editingCategory = ref<Category | null>(null)
 
@@ -299,57 +315,72 @@ async function onImportFileChange(e: Event) {
   }
 }
 
+/** 检测+清理 弹窗与流程（统一：全局 / 分类内 / 未分类内） */
 const cleanInvalidLoading = ref(false)
 const cleanInvalidProgressText = ref('')
+const cleanInvalidScopeLabel = ref('')
 const cleanInvalidCancelled = ref(false)
 const cleanInvalidResult = ref('')
 const cleanInvalidModalOpen = ref(false)
 const invalidLinks = ref<Bookmark[]>([])
 const selectedInvalidLinkIds = ref<Set<string>>(new Set())
 
+type CheckCleanupScope = { type: 'all' } | { type: 'category'; categoryId: string }
+
 function cancelCleanInvalidCheck() {
   cleanInvalidCancelled.value = true
 }
 
-async function onUncategorizedCleanInvalid() {
-  const cat = uncategorizedCategory.value
-  if (!cat) return
+async function runCheckAndCleanup(scope: CheckCleanupScope) {
+  if (cleanInvalidLoading.value) return
+  const links =
+    scope.type === 'all'
+      ? [...bookmarksStore.items]
+      : bookmarksStore.items.filter((b) => b.categoryId === scope.categoryId)
+  if (links.length === 0) return
+  const scopeLabel =
+    scope.type === 'all'
+      ? '全部书签'
+      : scope.categoryId === uncategorizedCategory.value?.id
+        ? '未分类'
+        : categoriesStore.items.find((c) => c.id === scope.categoryId)?.name ?? '该分类'
+  cleanInvalidScopeLabel.value = scopeLabel
   cleanInvalidResult.value = ''
   cleanInvalidCancelled.value = false
   cleanInvalidLoading.value = true
   cleanInvalidProgressText.value = '正在准备…'
-  const categoryLinks = bookmarksStore.items.filter((b) => b.categoryId === cat.id)
-  const total = categoryLinks.length
+  const total = links.length
   try {
-    for (let i = 0; i < categoryLinks.length; i++) {
+    for (let i = 0; i < links.length; i++) {
       if (cleanInvalidCancelled.value) break
       cleanInvalidProgressText.value = `正在检查链接 (${i + 1}/${total})…`
-      await checkOne(categoryLinks[i]!)
+      await checkOne(links[i]!)
     }
     if (cleanInvalidCancelled.value) return
-    invalidLinks.value = bookmarksStore.items.filter(
-      (b) => b.categoryId === cat.id && b.health === 'error'
-    )
+    const linkIds = new Set(links.map((b) => b.id))
+    invalidLinks.value = bookmarksStore.items.filter((b) => linkIds.has(b.id) && b.health === 'error')
     if (invalidLinks.value.length === 0) {
-      cleanInvalidResult.value = '分类下的链接均可正常访问，无需清理'
+      cleanInvalidResult.value = '范围内链接均可正常访问，无需清理'
       setTimeout(() => {
-        if (cleanInvalidResult.value === '分类下的链接均可正常访问，无需清理') {
-          cleanInvalidResult.value = ''
-        }
+        if (cleanInvalidResult.value === '范围内链接均可正常访问，无需清理') cleanInvalidResult.value = ''
       }, 3000)
       return
     }
     selectedInvalidLinkIds.value = new Set(invalidLinks.value.map((b) => b.id))
     cleanInvalidModalOpen.value = true
   } catch (err) {
-    if (!cleanInvalidCancelled.value) {
-      cleanInvalidResult.value = err instanceof Error ? err.message : '检查失败'
-    }
+    if (!cleanInvalidCancelled.value) cleanInvalidResult.value = err instanceof Error ? err.message : '检查失败'
   } finally {
     cleanInvalidLoading.value = false
     cleanInvalidProgressText.value = ''
   }
 }
+
+/** 供 CategoryCard 调用的「分类内检测+清理」 */
+function runCheckAndCleanupForCategory(categoryId: string) {
+  runCheckAndCleanup({ type: 'category', categoryId })
+}
+provide('runCheckAndCleanupForCategory', runCheckAndCleanupForCategory)
 
 function closeCleanInvalidModal() {
   cleanInvalidModalOpen.value = false
@@ -369,17 +400,12 @@ async function confirmCleanInvalid() {
     return
   }
   cleanInvalidResult.value = ''
-  const cat = uncategorizedCategory.value
-  if (!cat) return
-  
   const toRemove = invalidLinks.value.filter((b) => selectedInvalidLinkIds.value.has(b.id))
   const hadPinned = toRemove.some((b) => pinnedStore.ids.includes(b.id))
-  
   for (const b of toRemove) {
     bookmarksStore.removeBookmark(b.id)
     if (pinnedStore.ids.includes(b.id)) pinnedStore.remove(b.id)
   }
-  
   try {
     await saveBookmarks?.()
     if (hadPinned) await savePinned?.()
@@ -387,7 +413,6 @@ async function confirmCleanInvalid() {
   } catch (err) {
     cleanInvalidResult.value = err instanceof Error ? err.message : '清理并保存失败'
   }
-  
   closeCleanInvalidModal()
 }
 
@@ -407,14 +432,15 @@ const autoClassifyProgressText = ref('')
 const autoClassifyAbortRef = ref<AbortController | null>(null)
 const autoClassifyResultOpen = ref(false)
 const autoClassifyResultMessage = ref('')
-const autoClassifySuggestions = ref<Array<{ bookmark: Bookmark; suggestedCategory: string; isNew: boolean; suggestedDescription?: string; suggestedTitle?: string }>>([])
+const autoClassifySuggestions = ref<Array<{ bookmark: Bookmark; suggestedCategory: string; isNew: boolean; suggestedDescription?: string; suggestedTitle?: string; suggestedCategoryDescription?: string }>>([])
 const autoClassifySelections = ref<Record<string, string>>({})
 const autoClassifyDropdownOptions = computed(() => {
   const keep = { value: '__keep__', label: '暂不归类' }
   const existing = categoriesForGrid.value.map((c) => ({ value: c.id, label: c.name }))
+  const hasExisting = categoriesForGrid.value.length > 0
   const newNames = new Set<string>()
   for (const s of autoClassifySuggestions.value) {
-    if (s.isNew && s.suggestedCategory) newNames.add(s.suggestedCategory)
+    if (s.suggestedCategory && (s.isNew || !hasExisting)) newNames.add(s.suggestedCategory)
   }
   const newOpts = [...newNames].map((n) => ({ value: `new:${n}`, label: `✨ [新] ${n}` }))
   return [keep, ...existing, ...newOpts]
@@ -497,7 +523,7 @@ async function startAutoClassifyAnalysis() {
     const res = await fetch('/api/ai/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [{ role: 'user', content: buildAutoClassifyPrompt(categoriesForGrid.value.map((c) => c.name), items) }] }),
+      body: JSON.stringify({ messages: [{ role: 'user', content: buildAutoClassifyPrompt(categoriesForGrid.value.map((c) => ({ name: c.name, description: c.description })), items) }] }),
       signal: ac.signal,
     })
     const data = await res.json().catch(() => ({}))
@@ -524,6 +550,7 @@ async function startAutoClassifyAnalysis() {
         isNew: p.isNew === true,
         suggestedDescription: p.description,
         suggestedTitle: p.title,
+        suggestedCategoryDescription: p.categoryDescription,
       }
     })
     const selections: Record<string, string> = {}
@@ -553,10 +580,13 @@ function titleIsEmptyOrDomain(title: string, url: string): boolean {
 }
 
 function buildAutoClassifyPrompt(
-  categoryNames: string[],
+  categories: Array<{ name: string; description?: string }>,
   items: Array<{ id: string; title: string; url: string; summary?: string; description?: string }>
 ): string {
-  const catList = categoryNames.length ? `现有分类：${categoryNames.join('、')}` : '当前尚无其他分类，请为以下链接建议合适的新分类名称。'
+  const hasExistingCategories = categories.length > 0
+  const catList = hasExistingCategories
+    ? `现有分类（名称与说明，请根据说明判断归属）：\n${categories.map((c) => (c.description ? `- ${c.name}：${c.description}` : `- ${c.name}`)).join('\n')}`
+    : '当前尚无任何现有分类，请为每条链接建议一个合适的新分类名（2～8 个字符），每条输出的 isNew 均应为 true，并填写 categoryDescription。'
   const hasSummary = items.some((x) => x.summary)
   const rows = items
     .map((x) => {
@@ -575,13 +605,19 @@ function buildAutoClassifyPrompt(
     ? `
 4. 若某链接的「当前标题: 需修正」（即标题为空或仅为域名），请根据页面摘要为该链接生成一个简短、准确的网站名称（如产品名、站点名，2～15 字），放在 title 字段；若「当前标题: 已有」则 title 留空字符串。`
     : ''
+  const rule1 = hasExistingCategories
+    ? '1. 从现有分类中选一个最合适的（可参考分类说明），或若无合适分类则建议一个简短的新分类名（2～8 个字符）。'
+    : '1. 为每条链接建议一个简短的新分类名（2～8 个字符），所有条目的 isNew 均填 true，并填写 categoryDescription（该新分类的一句简短说明）。'
+  const formatExample = hasExistingCategories
+    ? `[{"id":"书签id","category":"分类名","isNew":false${hasSummary ? ',"description":"可选","title":"可选"' : ''},"categoryDescription":"仅 isNew 为 true 时必填"}]`
+    : `[{"id":"书签id","category":"新分类名","isNew":true,"categoryDescription":"该分类的一句简短说明"${hasSummary ? ',"description":"可选","title":"可选"' : ''}]`
   return `${catList}
 
 请对以下未分类书签进行归类。规则：
-1. 从现有分类中选一个最合适的，或若无合适分类则建议一个简短的新分类名（2～8 个字符）。
-2. 仅输出一个 JSON 数组，不要其他说明。格式：[{"id":"书签id","category":"分类名","isNew":false${hasSummary ? ',"description":"可选，见规则3","title":"可选，见规则4"' : ''}}]
-   - 若选现有分类则 isNew 为 false，category 为现有分类名之一。
-   - 若建议新分类则 isNew 为 true，category 为新分类名。${descRule}${titleRule}
+${rule1}
+2. 仅输出一个 JSON 数组，不要其他说明。格式：${formatExample}
+   - 若选现有分类则 isNew 为 false，category 为现有分类名之一，不需 categoryDescription。
+   - 若建议新分类则 isNew 为 true，category 为新分类名，且必须填写 categoryDescription。${descRule}${titleRule}
 
 链接列表：
 ${rows}`
@@ -590,7 +626,7 @@ ${rows}`
 function parseAutoClassifyResponse(
   text: string,
   validIds: string[]
-): Array<{ id: string; category: string; isNew: boolean; description?: string; title?: string }> {
+): Array<{ id: string; category: string; isNew: boolean; description?: string; title?: string; categoryDescription?: string }> {
   let jsonStr = text.trim()
   const codeMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (codeMatch) jsonStr = codeMatch[1].trim()
@@ -600,20 +636,25 @@ function parseAutoClassifyResponse(
     const validSet = new Set(validIds)
     return arr
       .filter(
-        (x): x is { id: string; category: string; isNew?: boolean; description?: string; title?: string } =>
+        (x): x is { id: string; category: string; isNew?: boolean; description?: string; title?: string; categoryDescription?: string } =>
           typeof x === 'object' &&
           x !== null &&
           typeof (x as { id?: string }).id === 'string' &&
           typeof (x as { category?: string }).category === 'string'
       )
       .filter((x) => validSet.has(x.id))
-      .map((x) => ({
-        id: x.id,
-        category: String(x.category).trim(),
-        isNew: x.isNew === true,
-        description: typeof x.description === 'string' ? x.description.trim() : undefined,
-        title: typeof x.title === 'string' ? x.title.trim() : undefined,
-      }))
+      .map((x) => {
+        const category = String(x.category).trim()
+        const isNew = x.isNew === true
+        return {
+          id: x.id,
+          category,
+          isNew,
+          description: typeof x.description === 'string' ? x.description.trim() : undefined,
+          title: typeof x.title === 'string' ? x.title.trim() : undefined,
+          categoryDescription: typeof (x as { categoryDescription?: string }).categoryDescription === 'string' ? String((x as { categoryDescription?: string }).categoryDescription).trim() : undefined,
+        }
+      })
   } catch {
     return []
   }
@@ -635,6 +676,11 @@ async function confirmAutoClassifyApply() {
       if (name && !nameToId[name]) newNamesToCreate.add(name)
     }
   }
+  const newCategoryDescriptions: Record<string, string> = {}
+  for (const s of autoClassifySuggestions.value) {
+    if (s.isNew && s.suggestedCategory && s.suggestedCategoryDescription && !newCategoryDescriptions[s.suggestedCategory])
+      newCategoryDescriptions[s.suggestedCategory] = s.suggestedCategoryDescription
+  }
   let maxOrder = 0
   for (const c of categoriesStore.items) {
     if (c.name !== PINNED_ONLY_CATEGORY_NAME && !PINNED_ONLY_CATEGORY_NAMES_LEGACY.includes(c.name))
@@ -645,6 +691,7 @@ async function confirmAutoClassifyApply() {
     categoriesStore.addCategory({
       id,
       name,
+      description: newCategoryDescriptions[name],
       order: ++maxOrder,
     })
     nameToId[name] = id
@@ -751,10 +798,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         <draggable
           v-model="pinnedList"
           item-key="id"
+          :group="{ name: 'bookmarks', put: isEditLayout && pinnedBookmarks.length < MAX_PINNED }"
           class="contents"
           ghost-class="opacity-50"
           :disabled="!isEditLayout"
           @end="onPinnedDragEnd"
+          @change="onPinnedListChange"
         >
           <template #item="{ element }">
             <div
@@ -791,31 +840,47 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
     </section>
 
     <section class="categories">
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-5">
+      <div class="relative z-10 flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-5">
         <h2 class="section-title text-lg font-bold flex items-center gap-2.5 text-slate-800 dark-text-94">
           <span class="material-symbols-outlined text-indigo-500 dark:text-indigo-400 text-[22px]">category</span>
           分类
         </h2>
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="relative flex items-center" ref="categorySectionSettingsRef">
           <button
+            ref="categorySectionSettingsTriggerRef"
             type="button"
-            class="p-2.5 rounded-xl glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5 transition-all duration-200 flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="checking || bookmarksStore.items.length === 0"
-            :title="checking ? '检查中…' : '检查链接'"
-            aria-label="检查链接"
-            @click="runHealthCheck"
+            class="p-2.5 rounded-xl glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5 transition-all duration-200 flex items-center justify-center cursor-pointer"
+            title="设置"
+            aria-haspopup="menu"
+            :aria-expanded="categorySectionSettingsOpen"
+            @click="categorySectionSettingsOpen = !categorySectionSettingsOpen"
           >
-            <span class="material-symbols-outlined text-xl">bolt</span>
+            <span class="material-symbols-outlined text-xl">settings</span>
           </button>
-          <button
-            type="button"
-            class="p-2.5 rounded-xl bg-indigo-500 dark:bg-indigo-400 text-white shadow-lg hover:bg-indigo-600 dark:hover:bg-indigo-300 transition-all duration-200 flex items-center justify-center cursor-pointer"
-            title="新建分类"
-            aria-label="新建分类"
-            @click="openAddCategory"
-          >
-            <span class="material-symbols-outlined text-xl">add</span>
-          </button>
+          <Transition name="menu-pop">
+            <div
+              v-if="categorySectionSettingsOpen"
+              class="absolute right-0 top-full mt-1 flex flex-col gap-0.5 p-1 rounded-xl shadow-xl border border-slate-200 dark:border-white/20 bg-white dark:bg-white/10 dark:backdrop-blur-xl z-[110] min-w-[2.5rem] pointer-events-auto"
+            >
+              <button
+                type="button"
+                class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
+                title="检测并清理失效链接"
+                :disabled="cleanInvalidLoading || bookmarksStore.items.length === 0"
+                @click="closeCategorySectionSettings(); runCheckAndCleanup({ type: 'all' })"
+              >
+                <span class="material-symbols-outlined text-lg block">{{ cleanInvalidLoading ? 'progress_activity' : 'bolt' }}</span>
+              </button>
+              <button
+                type="button"
+                class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                title="新建分类"
+                @click="closeCategorySectionSettings(); openAddCategory()"
+              >
+                <span class="material-symbols-outlined text-lg block">add</span>
+              </button>
+            </div>
+          </Transition>
         </div>
       </div>
       <draggable
@@ -882,12 +947,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           <button
             type="button"
             class="w-10 h-10 flex items-center justify-center shrink-0 rounded-xl text-sm font-medium transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5 disabled:opacity-50"
-            :disabled="cleanInvalidLoading"
-            title="自动检查并清理本分类下的失效链接"
-            aria-label="清理失效"
-            @click="onUncategorizedCleanInvalid"
+            :disabled="cleanInvalidLoading || uncategorizedBookmarks.length === 0"
+            title="检测并清理失效链接"
+            aria-label="检测并清理失效链接"
+            @click="uncategorizedCategory && runCheckAndCleanup({ type: 'category', categoryId: uncategorizedCategory.id })"
           >
-            <span class="material-symbols-outlined text-xl">{{ cleanInvalidLoading ? 'progress_activity' : 'speed' }}</span>
+            <span class="material-symbols-outlined text-xl">{{ cleanInvalidLoading ? 'progress_activity' : 'bolt' }}</span>
           </button>
           <button
             type="button"
@@ -1149,7 +1214,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
               </div>
             </div>
             <p class="px-4 pb-3 text-xs text-slate-500 dark:text-slate-400">
-              正在检测未分类书签的可用性，完成后将列出失效链接供您确认清理。请勿关闭或刷新页面。
+              正在检测「{{ cleanInvalidScopeLabel }}」的可用性，完成后将列出失效链接供您确认清理。请勿关闭或刷新页面。
             </p>
             <div class="px-4 py-3 border-t border-slate-200 dark:border-white/10 flex justify-end bg-slate-50/50 dark:bg-white/5">
               <button

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, inject, nextTick, ref, watch, onMounted, onUnmounted } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import draggable from 'vuedraggable'
 import type { Bookmark } from '@/types'
@@ -34,6 +34,8 @@ const emit = defineEmits<{
 const bookmarksStore = useBookmarksStore()
 const saveBookmarks = inject<() => Promise<void>>('saveBookmarks')
 const savePinned = inject<() => Promise<void>>('savePinned')
+const runCheckAndCleanupForCategory = inject<(categoryId: string) => void>('runCheckAndCleanupForCategory')
+const categoryListsVersion = inject<{ value: number }>('categoryListsVersion')
 const pinnedStore = usePinnedStore()
 const privateStore = usePrivateCategoriesStore()
 
@@ -74,6 +76,10 @@ const canDeleteCategory = computed(() => !hasPinnedInCategory.value)
 
 const list = ref<Bookmark[]>([])
 watch(bookmarksInCategory, (v) => { list.value = [...v] }, { immediate: true })
+// 从常用区拖入后首页会递增 version，此处重同步以恢复分类内列表显示
+if (categoryListsVersion) {
+  watch(() => categoryListsVersion.value, () => { list.value = [...bookmarksInCategory.value] })
+}
 
 const formOpen = ref(false)
 const editingBookmark = ref<Bookmark | null>(null)
@@ -161,8 +167,41 @@ async function handleContextTogglePinned(bookmark: Bookmark) {
 
 onClickOutside(contextMenuRef, closeContextMenu)
 
+// 分类设置菜单（检测+清理/编辑/删除）；Teleport 到 body 避免被卡片 overflow 裁剪
+const settingsMenuOpen = ref(false)
+const settingsMenuRef = ref<HTMLElement | null>(null)
+const settingsTriggerRef = ref<HTMLElement | null>(null)
+const settingsMenuPos = ref({ top: 0, left: 0 })
+onClickOutside(settingsMenuRef, closeSettingsMenu, { ignore: [settingsTriggerRef] })
+
+function toggleSettingsMenu() {
+  if (settingsMenuOpen.value) {
+    settingsMenuOpen.value = false
+    return
+  }
+  settingsMenuOpen.value = true
+  nextTick(() => {
+    const el = settingsTriggerRef.value
+    if (el) {
+      const rect = el.getBoundingClientRect()
+      settingsMenuPos.value = { top: rect.bottom + 4, right: window.innerWidth - rect.right }
+    }
+  })
+}
+function closeSettingsMenu() {
+  settingsMenuOpen.value = false
+}
+
+function onCheckAndCleanupClick() {
+  closeSettingsMenu()
+  runCheckAndCleanupForCategory?.(props.category.id)
+}
+
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') closeContextMenu()
+  if (e.key === 'Escape') {
+    closeContextMenu()
+    settingsMenuOpen.value = false
+  }
 }
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))
@@ -201,7 +240,10 @@ defineExpose({ openAdd })
         <p v-if="unlockError" class="mt-2 text-xs text-red-500 dark:text-red-400">{{ unlockError }}</p>
       </div>
       <div v-if="!hideTitle" class="flex items-center justify-between mb-6 opacity-20 pointer-events-none">
-        <h3 class="font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
+        <h3
+          class="font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200"
+          :title="category.description ?? undefined"
+        >
           <span class="material-symbols-outlined text-indigo-400 text-lg">lock</span>
           {{ category.name }}
         </h3>
@@ -213,7 +255,7 @@ defineExpose({ openAdd })
       </div>
     </template>
     <template v-else>
-    <!-- 悬停时右上角显示：新增；非未分类时显示重命名、删除 -->
+    <!-- 悬停时右上角显示：新增；非未分类时显示设置（编辑/删除） -->
     <div
       class="absolute top-3 right-3 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto"
     >
@@ -225,39 +267,79 @@ defineExpose({ openAdd })
       >
         <span class="material-symbols-outlined text-lg">add</span>
       </button>
-      <template v-if="!noRenameDelete">
+      <div v-if="!noRenameDelete" class="relative">
         <button
+          ref="settingsTriggerRef"
           type="button"
           class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-white/15 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-          title="重命名"
-          @click.stop="emit('editCategory')"
+          title="设置"
+          aria-haspopup="menu"
+          :aria-expanded="settingsMenuOpen"
+          @click.stop="toggleSettingsMenu()"
         >
-          <span class="material-symbols-outlined text-lg">edit</span>
+          <span class="material-symbols-outlined text-lg">settings</span>
         </button>
-        <button
-          type="button"
-          class="p-2 rounded-xl transition-colors"
-          :class="canDeleteCategory ? 'text-slate-600 dark:text-slate-300 hover:bg-red-100 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-400' : 'text-slate-400 dark:text-slate-500 cursor-not-allowed'"
-          :title="canDeleteCategory ? '删除分类' : '该分类下有书签在常用区，请先从常用区移除后再删除'"
-          :disabled="!canDeleteCategory"
-          @click.stop="canDeleteCategory && emit('deleteCategory')"
-        >
-          <span class="material-symbols-outlined text-lg">delete</span>
-        </button>
-      </template>
+      </div>
     </div>
+    <!-- 分类设置菜单：Teleport 到 body 避免被卡片裁剪，更紧凑的图标排布 -->
+    <Teleport to="body">
+      <Transition name="menu-pop">
+        <div
+          v-if="settingsMenuOpen"
+          ref="settingsMenuRef"
+          class="fixed z-[110] flex flex-col rounded-xl shadow-xl border border-slate-200 dark:border-white/20 bg-white dark:bg-white/10 dark:backdrop-blur-xl py-0.5 pointer-events-auto"
+          :style="{ top: `${settingsMenuPos.top}px`, right: `${settingsMenuPos.right}px` }"
+        >
+          <button
+            type="button"
+            class="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
+            title="检测并清理失效链接"
+            :disabled="list.length === 0"
+            @click.stop="onCheckAndCleanupClick()"
+          >
+            <span class="material-symbols-outlined text-lg block">bolt</span>
+          </button>
+          <button
+            type="button"
+            class="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            title="编辑"
+            @click.stop="closeSettingsMenu(); emit('editCategory')"
+          >
+            <span class="material-symbols-outlined text-lg block">edit</span>
+          </button>
+          <button
+            type="button"
+            class="p-1.5 rounded-lg transition-colors"
+            :class="canDeleteCategory ? 'text-slate-600 dark:text-slate-300 hover:bg-red-500/10 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-400' : 'text-slate-400 dark:text-slate-500 cursor-not-allowed'"
+            :title="canDeleteCategory ? '删除分类' : '该分类下有书签在常用区，请先从常用区移除后再删除'"
+            :disabled="!canDeleteCategory"
+            @click.stop="canDeleteCategory && (closeSettingsMenu(), emit('deleteCategory'))"
+          >
+            <span class="material-symbols-outlined text-lg block">delete</span>
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
     <!-- 非 hideTitle 时显示分类标题行 -->
     <div
       v-if="!hideTitle"
       class="flex items-center justify-between mb-6 pr-24"
     >
-      <h3 class="font-bold flex items-center gap-2 text-slate-800 dark-text-94">
+      <h3
+        class="font-bold flex items-center gap-2 text-slate-800 dark-text-94"
+        :title="category.description ?? undefined"
+      >
         <span v-if="category.isPrivate" class="material-symbols-outlined text-indigo-400 text-lg">lock</span>
         {{ category.name }}
       </h3>
     </div>
-    <!-- 书签网格：未分类（hideTitle）为自适应列数，分类卡片为 2 列 -->
-    <div :class="hideTitle ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,7rem),1fr))] gap-2' : ''">
+    <!-- 书签网格：未分类（hideTitle）为自适应列数，分类卡片为 2 列；限制高度约 10 行，超出可滚动 -->
+    <div
+      :class="[
+        hideTitle ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,7rem),1fr))] gap-2' : '',
+        'max-h-[30rem] overflow-y-auto overflow-x-hidden min-h-0 custom-scrollbar'
+      ]"
+    >
       <draggable
         v-model="list"
         item-key="id"
@@ -273,7 +355,7 @@ defineExpose({ openAdd })
             class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden p-2 -mx-2 rounded-xl hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors cursor-context-menu"
             @contextmenu.prevent="(e) => openContextMenu(e, element)"
           >
-            <BookmarkIcon :bookmark="element" show-title size="sm" class="!p-0 !min-w-0 flex-1 flex-row gap-2 min-w-0" />
+            <BookmarkIcon :bookmark="element" show-title size="sm" :not-draggable="editLayout" class="!p-0 !min-w-0 flex-1 flex-row gap-2 min-w-0" />
           </div>
         </template>
       </draggable>

@@ -463,7 +463,7 @@ function cancelImport() {
           <p class="pt-2 font-semibold">主要功能</p>
           <ul class="list-disc list-inside space-y-1.5 pl-1 opacity-90">
             <li><strong>首页</strong>：常用（置顶书签）、分类卡片（私密分类、宽屏多列/瀑布流）、未分类（添加 / 导入 / 清理失效 / AI 自动归类）、检查链接</li>
-            <li><strong>搜索</strong>：顶部聚合搜索，无前缀为网页搜索（可切换引擎），前缀 <code class="px-1 py-0.5 rounded bg-slate-200 dark:bg-white/10 font-mono text-xs">@</code> 为书签搜索；⌘K 聚焦并进入书签模式</li>
+            <li><strong>搜索</strong>：顶部聚合搜索，模式标签（网页/书签）可点击或按 Tab 切换；网页模式可切换搜索引擎，书签模式搜本地；⌘K 聚焦并进入书签模式</li>
             <li><strong>AI 对话</strong>：右侧抽屉，可配置 Base URL / 模型 / API Key</li>
             <li><strong>设置</strong>：AI 配置、天气位置、背景（Bing 每日一图）、导出/导入 JSON</li>
           </ul>

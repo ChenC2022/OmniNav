@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import type { Category } from '@/types'
 import { nanoid } from '@/utils/id'
 import { hashPassword } from '@/utils/crypto'
+import { useBookmarksStore } from '@/stores/bookmarks'
 
 const props = defineProps<{
   modelValue: boolean
@@ -14,24 +15,75 @@ const emit = defineEmits<{
   (e: 'save', c: Category): void
 }>()
 
+const bookmarksStore = useBookmarksStore()
 const name = ref('')
+const description = ref('')
 const isPrivate = ref(false)
 const passwordHint = ref('')
 const password = ref('')
 const submitting = ref(false)
+const generatingDescription = ref(false)
+const generateDescriptionError = ref('')
+
+const bookmarksInCategory = computed(() => {
+  if (!props.edit?.id) return []
+  return bookmarksStore.items
+    .filter((b) => b.categoryId === props.edit!.id)
+    .slice(0, 8)
+    .map((b) => b.title || b.url)
+})
 
 watch(
   () => [props.modelValue, props.edit] as const,
   ([open, c]) => {
     if (open) {
       name.value = c?.name ?? ''
+      description.value = c?.description ?? ''
       isPrivate.value = c?.isPrivate ?? false
       passwordHint.value = c?.passwordHint ?? ''
       password.value = ''
+      generateDescriptionError.value = ''
     }
   },
   { immediate: true }
 )
+
+async function generateDescriptionByAI() {
+  const n = name.value.trim()
+  if (!n) return
+  generatingDescription.value = true
+  generateDescriptionError.value = ''
+  try {
+    const examples = bookmarksInCategory.value.length
+      ? `该分类下书签示例：${bookmarksInCategory.value.join('、')}。`
+      : ''
+    const res = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'user',
+            content: `分类名称：${n}。${examples}请为该分类生成一句简短说明（1～2 句话），说明该分类的用途或范围，便于后续将书签归入时判断。只输出说明文字，不要引号或其它前缀。`,
+          },
+        ],
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const code = (data as { code?: string })?.code
+      generateDescriptionError.value =
+        code === 'AI_NOT_CONFIGURED'
+          ? 'AI 未配置，请到设置中填写 Base URL、Model 与 API Key'
+          : (data as { error?: string })?.error ?? '生成失败'
+      return
+    }
+    const text = ((data as { message?: string })?.message ?? '').trim()
+    if (text) description.value = text
+  } finally {
+    generatingDescription.value = false
+  }
+}
 
 async function submit() {
   const n = name.value.trim()
@@ -56,6 +108,7 @@ async function submit() {
   emit('save', {
     id,
     name: n,
+    description: description.value.trim() || undefined,
     order: props.edit?.order ?? props.order ?? 0,
     isPrivate: isPrivate.value || undefined,
     passwordHint: isPrivate.value ? (passwordHint.value.trim() || undefined) : undefined,
@@ -96,6 +149,27 @@ function close() {
                 class="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 px-3 py-2 text-sm"
                 placeholder="如：开发、娱乐"
               />
+            </div>
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">说明（选填）</label>
+                <button
+                  type="button"
+                  class="text-xs px-2 py-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-50 flex items-center gap-1"
+                  :disabled="generatingDescription || !name.trim()"
+                  @click="generateDescriptionByAI"
+                >
+                  <span class="material-symbols-outlined text-sm">{{ generatingDescription ? 'progress_activity' : 'auto_awesome' }}</span>
+                  {{ generatingDescription ? '生成中…' : 'AI 生成说明' }}
+                </button>
+              </div>
+              <textarea
+                v-model="description"
+                rows="2"
+                class="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 px-3 py-2 text-sm resize-none"
+                placeholder="如：开发工具、文档与教程"
+              />
+              <p v-if="generateDescriptionError" class="mt-1 text-xs text-red-500 dark:text-red-400">{{ generateDescriptionError }}</p>
             </div>
             <div class="flex items-center gap-2">
               <input
