@@ -9,8 +9,8 @@ import type { Bookmark, Category } from '@/types'
 import BookmarkIcon from '@/components/bookmark/BookmarkIcon.vue'
 import CategoryCard from '@/components/category/CategoryCard.vue'
 import CategoryForm from '@/components/category/CategoryForm.vue'
+import SearchBar from '@/components/search/SearchBar.vue'
 import { useHealthCheck } from '@/composables/useHealthCheck'
-import { getRandomQuote } from '@/data/quotes'
 import { nanoid } from '@/utils/id'
 import { parseBookmarkHtml } from '@/utils/parseBookmarkHtml'
 
@@ -26,9 +26,7 @@ const saveCategories = inject<() => Promise<void>>('saveCategories')
 const savePinned = inject<() => Promise<void>>('savePinned')
 const pinnedStore = usePinnedStore()
 const { checkOne } = useHealthCheck()
-const dailyQuote = ref('')
 onMounted(() => {
-  dailyQuote.value = getRandomQuote()
   // 迁移：将旧名称「未分类链接」「快捷链接」改为「未分类」，刷新后即生效
   const legacy = categoriesStore.items.find((c) => PINNED_ONLY_CATEGORY_NAMES_LEGACY.includes(c.name))
   if (legacy && legacy.name !== PINNED_ONLY_CATEGORY_NAME) {
@@ -794,7 +792,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           <template #item="{ element }">
             <div
               v-if="element"
-              class="pinned-card glass-translucent rounded-2xl p-4 card-hover cursor-context-menu flex items-center gap-1.5 min-w-0"
+              class="pinned-card glass-translucent rounded-2xl p-4 card-hover hover:bg-slate-400/30 dark:hover:bg-transparent cursor-context-menu flex items-center gap-1.5 min-w-0"
               @contextmenu.prevent="openPinnedContextMenu($event, element)"
             >
               <span
@@ -805,7 +803,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
               >
                 <span class="material-symbols-outlined text-xl leading-none block">drag_indicator</span>
               </span>
-              <BookmarkIcon :bookmark="element" size="lg" :show-title="true" class="!p-0 min-w-0 flex-1" />
+              <BookmarkIcon :bookmark="element" size="lg" :show-title="true" :no-hover-bg="true" class="!p-0 min-w-0 flex-1" />
             </div>
           </template>
         </draggable>
@@ -817,11 +815,10 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
       </p>
     </section>
 
-    <!-- 励志语录占位（前期静态随机，后续可接 API/热搜） -->
-    <section v-if="dailyQuote" class="quote-bar mb-8 sm:mb-10">
-      <div class="rounded-2xl glass-translucent px-4 py-3 flex items-center gap-3 border border-slate-200/50 dark:border-white/10">
-        <span class="material-symbols-outlined text-indigo-500 dark:text-indigo-400 text-xl shrink-0">format_quote</span>
-        <p class="text-sm text-slate-600 dark:text-slate-300 italic flex-1 min-w-0">{{ dailyQuote }}</p>
+    <!-- 搜索栏：与顶部励志语对换位置，置于常用与分类之间 -->
+    <section class="search-in-page mb-8 sm:mb-10 w-full flex justify-center">
+      <div class="w-full max-w-2xl px-1">
+        <SearchBar />
       </div>
     </section>
 
@@ -903,15 +900,15 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           <span class="material-symbols-outlined text-indigo-500 dark:text-indigo-400 text-[22px]">link</span>
           未分类
         </h2>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            class="w-10 h-10 flex items-center justify-center shrink-0 rounded-xl text-sm font-medium transition-colors cursor-pointer bg-indigo-500 dark:bg-indigo-400 text-white hover:bg-indigo-600 dark:hover:bg-indigo-300"
+            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer bg-indigo-500 dark:bg-indigo-400 text-white hover:bg-indigo-600 dark:hover:bg-indigo-300 active:scale-[0.98] disabled:opacity-50"
             title="添加"
             aria-label="添加"
             @click="uncategorizedCardRef?.openAdd?.()"
           >
-            <span class="material-symbols-outlined text-xl">add</span>
+            <span class="material-symbols-outlined text-[22px]">add</span>
           </button>
           <input
             ref="importFileInputRef"
@@ -923,33 +920,33 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           >
           <button
             type="button"
-            class="w-10 h-10 flex items-center justify-center shrink-0 rounded-xl text-sm font-medium transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5 disabled:opacity-50"
+            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/5 dark:hover:bg-white/5 disabled:opacity-50"
             :disabled="importLoading"
             title="导入 Chrome / Edge / Firefox 导出的书签 HTML 文件"
             aria-label="导入"
             @click="onUncategorizedImport"
           >
-            <span class="material-symbols-outlined text-xl">{{ importLoading ? 'progress_activity' : 'upload_file' }}</span>
+            <span class="material-symbols-outlined text-[22px]">{{ importLoading ? 'progress_activity' : 'upload_file' }}</span>
           </button>
           <button
             type="button"
-            class="w-10 h-10 flex items-center justify-center shrink-0 rounded-xl text-sm font-medium transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5 disabled:opacity-50"
+            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/5 dark:hover:bg-white/5 disabled:opacity-50"
             :disabled="cleanInvalidLoading || uncategorizedBookmarks.length === 0"
             title="检测并清理失效链接"
             aria-label="检测并清理失效链接"
             @click="uncategorizedCategory && runCheckAndCleanup({ type: 'category', categoryId: uncategorizedCategory.id })"
           >
-            <span class="material-symbols-outlined text-xl">{{ cleanInvalidLoading ? 'progress_activity' : 'bolt' }}</span>
+            <span class="material-symbols-outlined text-[22px]">{{ cleanInvalidLoading ? 'progress_activity' : 'bolt' }}</span>
           </button>
           <button
             type="button"
-            class="w-10 h-10 flex items-center justify-center shrink-0 rounded-xl text-sm font-medium transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5 disabled:opacity-50"
+            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/5 dark:hover:bg-white/5 disabled:opacity-50"
             :disabled="autoClassifyLoading"
             title="使用 AI 将未分类书签归入已有分类或建议新分类"
             aria-label="自动归类"
             @click="openAutoClassifyPreDialog"
           >
-            <span class="material-symbols-outlined text-xl">{{ autoClassifyLoading ? 'progress_activity' : 'auto_awesome' }}</span>
+            <span class="material-symbols-outlined text-[22px]">{{ autoClassifyLoading ? 'progress_activity' : 'auto_awesome' }}</span>
           </button>
         </div>
       </div>
@@ -969,6 +966,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         :hide-title="true"
         :add-in-header="true"
         :no-rename-delete="true"
+        :no-add-in-grid="true"
       />
     </section>
 

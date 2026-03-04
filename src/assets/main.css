@@ -278,6 +278,14 @@ html.dark .glass-translucent {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
+/* 浅色模式：常用区卡片 hover 与分类内书签一致（slate 灰底），确保高亮明显 */
+.pinned-section .pinned-card.card-hover {
+  transition: transform 0.2s ease, filter 0.2s ease, background-color 0.2s ease;
+}
+.pinned-section .pinned-card.card-hover:hover {
+  background: rgba(148, 163, 184, 0.5); /* 与分类内书签同色系，略深以便浅色下更明显 */
+}
+
 /* 深色模式：常用区域专用配色，偏深色半透明与背景融合 */
 html.dark .pinned-section {
   background: rgba(15, 23, 42, 0.4);

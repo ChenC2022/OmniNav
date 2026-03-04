@@ -22,8 +22,10 @@ const props = withDefaults(
     addInHeader?: boolean
     /** 为 true 时不显示重命名、删除（如「未分类」不可改名、不可删） */
     noRenameDelete?: boolean
+    /** 为 true 时不显示卡片内「添加」格子（仅用头部添加按钮时使用，如未分类） */
+    noAddInGrid?: boolean
   }>(),
-  { editLayout: true, hideTitle: false, addInHeader: false, noRenameDelete: false }
+  { editLayout: true, hideTitle: false, addInHeader: false, noRenameDelete: false, noAddInGrid: false }
 )
 
 const emit = defineEmits<{
@@ -251,13 +253,14 @@ defineExpose({ openAdd })
       </div>
     </template>
     <template v-else>
-    <!-- 悬停时右上角显示：新增；非未分类时显示设置（编辑/删除） -->
+    <!-- 悬停时右上角显示：新增（未禁用网格添加格时）；非未分类时显示设置（编辑/删除） -->
     <div
       class="absolute top-3 right-3 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto"
     >
       <button
+        v-if="!noAddInGrid"
         type="button"
-        class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-white/15 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+        class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-white/15 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
         title="新增书签"
         @click.stop="openAdd"
       >
@@ -267,7 +270,7 @@ defineExpose({ openAdd })
         <button
           ref="settingsTriggerRef"
           type="button"
-          class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-white/15 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-white/15 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
           title="设置"
           aria-haspopup="menu"
           :aria-expanded="settingsMenuOpen"
@@ -337,11 +340,12 @@ defineExpose({ openAdd })
         <span class="truncate">{{ category.name }}</span>
       </h3>
     </div>
-    <!-- 书签网格：未分类（hideTitle）为自适应列数，分类卡片为 2 列；限制高度约 10 行，超出可滚动 -->
+    <!-- 书签网格：未分类（hideTitle）为自适应列数，分类卡片为 2 列；限制高度约 10 行，超出可滚动；未分类无书签时保持最小高度便于拖放落入 -->
     <div
       :class="[
         hideTitle ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,7rem),1fr))] gap-2' : '',
-        'max-h-[30rem] overflow-y-auto min-h-0 custom-scrollbar'
+        'max-h-[30rem] overflow-y-auto min-h-0 custom-scrollbar',
+        hideTitle && noAddInGrid ? 'min-h-[3rem]' : ''
       ]"
     >
       <draggable
@@ -372,9 +376,9 @@ defineExpose({ openAdd })
           </div>
         </template>
       </draggable>
-      <!-- hideTitle 且非 addInHeader 时：添加按钮紧跟标签之后，同一网格内 -->
+      <!-- hideTitle 且非 addInHeader 且未禁用网格添加格时：添加按钮紧跟标签之后，同一网格内 -->
       <button
-        v-if="hideTitle && !addInHeader"
+        v-if="hideTitle && !addInHeader && !noAddInGrid"
         type="button"
         class="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-slate-300/70 dark:border-white/20 text-slate-400 dark-text-94 hover:border-indigo-400/50 hover:text-indigo-500 dark:hover:border-indigo-400/50 dark:hover:text-indigo-400 transition-colors cursor-pointer min-h-[4.5rem]"
         title="添加书签"

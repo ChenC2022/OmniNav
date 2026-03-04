@@ -23,3 +23,12 @@ export const QUOTES = [
 export function getRandomQuote(): string {
   return QUOTES[Math.floor(Math.random() * QUOTES.length)] ?? QUOTES[0]!
 }
+
+/** 返回 12 条静态语录（用于大模型失败时的兜底，可重复） */
+export function get12StaticQuotes(): string[] {
+  const list: string[] = []
+  for (let i = 0; i < 12; i++) {
+    list.push(getRandomQuote())
+  }
+  return list
+}

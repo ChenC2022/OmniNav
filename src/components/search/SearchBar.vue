@@ -154,9 +154,9 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="relative flex flex-1 min-w-0 max-w-2xl mx-1 sm:mx-2 md:mx-8">
+  <div class="relative flex flex-1 min-w-0 w-full max-w-2xl mx-1 sm:mx-2 md:mx-8">
     <form
-      class="search-bar-form relative flex flex-1 rounded-xl border border-slate-200/80 dark:border-white/20 bg-white/95 overflow-visible h-10 focus-within:ring-2 focus-within:ring-indigo-400/50 focus-within:border-indigo-400/50 transition-all duration-200 flex items-center pl-3"
+      class="search-bar-form relative flex flex-1 rounded-xl border border-slate-200/80 dark:border-white/20 bg-white/95 overflow-visible h-[3rem] focus-within:ring-2 focus-within:ring-indigo-400/50 focus-within:border-indigo-400/50 transition-all duration-200 flex items-center pl-3"
       @submit.prevent="submit"
       @keydown="onKeydown"
     >
@@ -177,7 +177,7 @@ function onKeydown(e: KeyboardEvent) {
         v-model="query"
         type="text"
         class="search-bar-input flex-1 min-w-0 h-full py-0 pl-2 pr-2 ml-2 bg-transparent text-slate-800 dark:text-white text-sm placeholder-slate-400 dark:placeholder-white/60 focus:outline-none border-0"
-        placeholder="搜索网页或 @ 搜索书签…"
+        placeholder="搜索网页或 @ 搜索书签，Tab按键可快速切换"
         autocomplete="off"
         aria-label="搜索"
       />
