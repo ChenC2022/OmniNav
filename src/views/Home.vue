@@ -790,7 +790,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           <template #item="{ element }">
             <div
               v-if="element"
-              class="pinned-card glass-translucent rounded-2xl p-4 card-hover hover:bg-slate-400/30 dark:hover:bg-transparent cursor-context-menu flex items-center gap-1.5 min-w-0"
+              class="pinned-card glass-translucent rounded-2xl p-4 card-hover cursor-context-menu flex items-center gap-1.5 min-w-0 text-slate-600 dark:text-slate-300"
               @contextmenu.prevent="openPinnedContextMenu($event, element)"
             >
               <span
@@ -830,7 +830,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           <button
             ref="categorySectionSettingsTriggerRef"
             type="button"
-            class="p-2.5 rounded-xl glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5 transition-all duration-200 flex items-center justify-center cursor-pointer"
+            class="p-2.5 rounded-xl glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all duration-200 flex items-center justify-center cursor-pointer"
             title="设置"
             aria-haspopup="menu"
             :aria-expanded="categorySectionSettingsOpen"
@@ -918,7 +918,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           >
           <button
             type="button"
-            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/5 dark:hover:bg-white/5 disabled:opacity-50"
+            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 disabled:opacity-50"
             :disabled="importLoading"
             title="导入 Chrome / Edge / Firefox 导出的书签 HTML 文件"
             aria-label="导入"
@@ -928,7 +928,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           </button>
           <button
             type="button"
-            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/5 dark:hover:bg-white/5 disabled:opacity-50"
+            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 disabled:opacity-50"
             :disabled="cleanInvalidLoading || uncategorizedBookmarks.length === 0"
             title="检测并清理失效链接"
             aria-label="检测并清理失效链接"
@@ -938,7 +938,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           </button>
           <button
             type="button"
-            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/5 dark:hover:bg-white/5 disabled:opacity-50"
+            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 disabled:opacity-50"
             :disabled="autoClassifyLoading"
             title="使用 AI 将未分类书签归入已有分类或建议新分类"
             aria-label="自动归类"
@@ -982,7 +982,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
                 <span class="material-symbols-outlined text-indigo-500 text-[20px]">auto_awesome</span>
                 AI 自动归类
               </span>
-              <button type="button" class="p-2 rounded-lg hover:bg-slate-200/5 dark:hover:bg-white/5 text-slate-500 dark-text-94 transition-colors" aria-label="关闭" @click="closeAutoClassifyPreDialog">
+              <button type="button" class="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 dark-text-94 transition-colors" aria-label="关闭" @click="closeAutoClassifyPreDialog">
                 <span class="material-symbols-outlined">close</span>
               </button>
             </div>
@@ -1054,7 +1054,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
                 <span class="material-symbols-outlined text-indigo-500 text-[20px]">label</span>
                 AI 归类建议
               </span>
-              <button type="button" class="p-2 rounded-lg hover:bg-slate-200/5 dark:hover:bg-white/5 text-slate-500 dark-text-94 transition-colors" aria-label="关闭" @click="closeAutoClassifyResultModal">
+              <button type="button" class="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 dark-text-94 transition-colors" aria-label="关闭" @click="closeAutoClassifyResultModal">
                 <span class="material-symbols-outlined">close</span>
               </button>
             </div>
@@ -1070,7 +1070,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
               <div
                 v-for="s in autoClassifySuggestions"
                 :key="s.bookmark.id"
-                class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-100/50 dark:hover:bg-white/5"
+                class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-200/50 dark:hover:bg-white/10"
               >
                 <div class="min-w-0 flex-1">
                   <p class="font-medium text-sm text-slate-800 dark-text-94 truncate">
@@ -1120,7 +1120,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           >
           <div class="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0">
             <span class="font-semibold text-slate-800 dark-text-94">添加到常用</span>
-            <button type="button" class="p-2 rounded-lg hover:bg-slate-200/5 dark:hover:bg-white/5 text-slate-500 dark-text-94 transition-colors" aria-label="关闭" @click="closeAddToPinned">
+            <button type="button" class="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 dark-text-94 transition-colors" aria-label="关闭" @click="closeAddToPinned">
               <span class="material-symbols-outlined">close</span>
             </button>
           </div>
@@ -1162,7 +1162,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
               v-for="b in addableBookmarksFiltered"
               :key="b.id"
               type="button"
-              class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors"
+              class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors"
               @click="addBookmarkToPinned(b)"
             >
               <span class="font-medium text-slate-800 dark-text-94 truncate flex-1 min-w-0">{{ b.title }}</span>
@@ -1229,7 +1229,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
                 <span class="material-symbols-outlined text-red-500 text-[20px]">warning</span>
                 发现失效链接
               </span>
-              <button type="button" class="p-2 rounded-lg hover:bg-slate-200/5 dark:hover:bg-white/5 text-slate-500 dark-text-94 transition-colors" aria-label="关闭" @click="closeCleanInvalidModal">
+              <button type="button" class="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 dark-text-94 transition-colors" aria-label="关闭" @click="closeCleanInvalidModal">
                 <span class="material-symbols-outlined">close</span>
               </button>
             </div>
@@ -1244,7 +1244,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
               <label
                 v-for="b in invalidLinks"
                 :key="b.id"
-                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors cursor-pointer select-none"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer select-none"
               >
                 <div class="relative flex items-center justify-center w-5 h-5 shrink-0">
                   <input
@@ -1297,7 +1297,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         >
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="pinnedOpenInNewWindow(pinnedMenuBookmark)"
         >
           新窗口打开
@@ -1305,7 +1305,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         <div class="my-1 border-t border-slate-200 dark:border-slate-600" />
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="removeFromPinned(pinnedMenuBookmark)"
         >
           从常用移除

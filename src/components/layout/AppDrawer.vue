@@ -32,7 +32,7 @@ onClickOutside(drawerEl, () => {
           </div>
           <button
             type="button"
-            class="drawer-panel-close p-2 rounded-xl opacity-60 hover:opacity-100 text-slate-600 dark:text-slate-400 hover:bg-slate-200/5 dark:hover:bg-white/5 transition-all"
+            class="drawer-panel-close p-2 rounded-xl opacity-60 hover:opacity-100 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all"
             aria-label="关闭"
             @click="ui.toggleDrawer()"
           >

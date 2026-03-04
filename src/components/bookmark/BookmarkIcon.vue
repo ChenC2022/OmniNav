@@ -90,8 +90,8 @@ function onIconError() {
     rel="noopener noreferrer"
     :draggable="!notDraggable"
     :class="[
-      'flex flex-col items-center gap-2 rounded-xl p-3 min-w-[4rem] transition-colors duration-200 group text-slate-600 dark:text-white cursor-pointer',
-      !noHoverBg && 'hover:bg-slate-200/5 dark:hover:bg-white/5'
+      'flex flex-col items-center gap-2 rounded-xl p-3 min-w-[4rem] transition-colors duration-200 group cursor-pointer',
+      noHoverBg ? '[color:inherit]' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/10'
     ]"
     :title="bookmark.description || bookmark.title"
   >
@@ -108,7 +108,7 @@ function onIconError() {
       />
       <div
         v-else
-        class="rounded-lg flex items-center justify-center bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold transition-all"
+        class="bookmark-letter rounded-lg flex items-center justify-center font-bold transition-all"
         :class="healthClass"
         :style="{ width: `${iconSize}px`, height: `${iconSize}px`, fontSize: iconSize * 0.5 + 'px' }"
       >

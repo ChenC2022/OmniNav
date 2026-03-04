@@ -278,12 +278,18 @@ html.dark .glass-translucent {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
-/* 浅色模式：常用区卡片 hover 与分类内书签一致（slate 灰底），确保高亮明显 */
+/* 常用区卡片 hover：仅用背景色变化，不叠加额外 brightness */
 .pinned-section .pinned-card.card-hover {
   transition: transform 0.2s ease, filter 0.2s ease, background-color 0.2s ease;
 }
 .pinned-section .pinned-card.card-hover:hover {
-  background: rgba(148, 163, 184, 0.5); /* 与分类内书签同色系，略深以便浅色下更明显 */
+  background: rgba(226, 232, 240, 0.50);
+  transform: none;
+  filter: none;
+}
+.pinned-section .pinned-card.card-hover:hover a.group,
+.pinned-section .pinned-card.card-hover:hover a.group span {
+  color: #0f172a !important;
 }
 
 /* 深色模式：常用区域专用配色，偏深色半透明与背景融合 */
@@ -298,8 +304,13 @@ html.dark .pinned-section .pinned-card.glass-translucent {
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.15);
 }
 html.dark .pinned-section .pinned-card.card-hover:hover {
-  background: rgba(51, 65, 85, 0.55);
-  filter: brightness(1.08);
+  background: rgba(255, 255, 255, 0.10);
+  transform: none;
+  filter: none;
+}
+html.dark .pinned-section .pinned-card.card-hover:hover a.group,
+html.dark .pinned-section .pinned-card.card-hover:hover a.group span {
+  color: #fff !important;
 }
 
 /* 弹层/搜索框等更强模糊 */
@@ -328,6 +339,24 @@ html.dark .glass-effect {
 }
 html.dark .card-hover:hover {
   filter: brightness(1.15);
+}
+
+/* 书签字母图标（favicon 不可用时的 fallback） */
+.bookmark-letter {
+  background: rgba(99, 102, 241, 0.2);
+  color: #4f46e5;
+}
+html.dark .bookmark-letter {
+  background: rgba(99, 102, 241, 0.25);
+  color: #c7d2fe;
+}
+
+/* 书签 hover 文字加亮：覆盖全局 #94A3B8 统一灰 */
+a.group:hover {
+  color: #0f172a;
+}
+html.dark a.group:hover {
+  color: #fff;
 }
 
 .selection-highlight {
@@ -361,6 +390,36 @@ html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
 html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #64748b;
 }
+
+/* ========== 保险库（私密分类）输入框 & 按钮 ========== */
+.vault-input {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+.vault-input::placeholder { color: #94a3b8; }
+.vault-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.5);
+  border-color: #818cf8;
+}
+html.dark .vault-input {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+html.dark .vault-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+.vault-btn {
+  background: #0f172a;
+}
+.vault-btn:hover { background: #1e293b; }
+html.dark .vault-btn {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+html.dark .vault-btn:hover { background: rgba(255, 255, 255, 0.18); }
 
 /* ========== Toggle 开关 ========== */
 .toggle-track {

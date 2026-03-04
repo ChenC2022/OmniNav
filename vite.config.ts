@@ -12,7 +12,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    strictPort: false, // 5173 被占用时自动尝试 5174，终端会打印实际地址
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8789',

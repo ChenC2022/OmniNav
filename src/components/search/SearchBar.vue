@@ -218,7 +218,7 @@ function onKeydown(e: KeyboardEvent) {
       <button
         v-if="showEngineSelector"
         type="button"
-        class="search-bar-engine flex items-center gap-1 px-3 h-full text-xs font-medium text-slate-500 dark:text-white hover:bg-slate-200/5 dark:hover:bg-white/5 shrink-0 transition-colors cursor-pointer"
+        class="search-bar-engine flex items-center gap-1 px-3 h-full text-xs font-medium text-slate-500 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 shrink-0 transition-colors cursor-pointer"
         title="切换搜索引擎（仅网页搜索时生效）"
         @click="showEngineDropdown = !showEngineDropdown"
       >
@@ -235,7 +235,7 @@ function onKeydown(e: KeyboardEvent) {
         :key="eng.id"
         type="button"
         class="search-dropdown-item w-full px-3 py-2.5 text-left text-sm font-medium transition-colors cursor-pointer rounded-lg"
-        :class="currentEngineId === eng.id ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-700 dark:text-white hover:bg-slate-200/5 dark:hover:bg-white/5'"
+        :class="currentEngineId === eng.id ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-700 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10'"
         @click="selectEngine(eng.id); showEngineDropdown = false"
       >
         {{ eng.name }}
@@ -256,7 +256,7 @@ function onKeydown(e: KeyboardEvent) {
           :key="b.id"
           type="button"
           class="w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors cursor-pointer rounded-lg"
-          :class="selectedBookmarkIndex === idx ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-700 dark:text-white hover:bg-slate-200/5 dark:hover:bg-white/5'"
+          :class="selectedBookmarkIndex === idx ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-700 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10'"
           @click="openBookmark(b)"
           @mouseenter="selectedBookmarkIndex = idx"
         >

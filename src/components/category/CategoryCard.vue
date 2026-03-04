@@ -209,7 +209,7 @@ defineExpose({ openAdd })
 
 <template>
   <div
-    class="group card-root glass-translucent rounded-2xl p-2 relative overflow-hidden card-hover"
+    class="group card-root glass-translucent rounded-2xl p-2 relative overflow-hidden"
   >
     <template v-if="!showContent">
       <div class="absolute inset-0 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md z-10 flex flex-col items-center justify-center p-6 text-center">
@@ -221,13 +221,13 @@ defineExpose({ openAdd })
             v-model="unlockPassword"
             type="password"
             autocomplete="off"
-            class="w-full bg-slate-50 dark:bg-white/10 dark:backdrop-blur-[10px] border border-slate-200 dark:border-white/20 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/50 focus:ring-2 focus:ring-indigo-400/50 focus:border-indigo-400 transition-all"
+            class="vault-input w-full rounded-xl px-4 py-2.5 text-sm transition-all"
             placeholder="••••••••"
             @keydown.enter="unlock()"
           />
           <button
             type="button"
-            class="w-full bg-slate-900 dark:bg-white/15 dark:backdrop-blur-[10px] dark:border dark:border-white/20 hover:bg-slate-800 dark:hover:bg-white/20 py-2.5 rounded-xl text-xs font-bold text-white transition-colors disabled:opacity-50"
+            class="vault-btn w-full py-2.5 rounded-xl text-xs font-bold text-white transition-colors disabled:opacity-50"
             :disabled="unlockLoading || !unlockPassword.trim()"
             @click="unlock()"
           >
@@ -260,7 +260,7 @@ defineExpose({ openAdd })
       <button
         v-if="!noAddInGrid"
         type="button"
-        class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-white/15 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+        class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
         title="新增书签"
         @click.stop="openAdd"
       >
@@ -270,7 +270,7 @@ defineExpose({ openAdd })
         <button
           ref="settingsTriggerRef"
           type="button"
-          class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-white/15 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
           title="设置"
           aria-haspopup="menu"
           :aria-expanded="settingsMenuOpen"
@@ -361,7 +361,7 @@ defineExpose({ openAdd })
       >
         <template #item="{ element }">
           <div
-            class="flex items-center gap-1 min-w-0 flex-1 overflow-hidden p-2 rounded-xl hover:bg-slate-400/30 dark:hover:bg-white/5 transition-colors cursor-context-menu"
+            class="flex items-center gap-1 min-w-0 flex-1 overflow-hidden p-2 rounded-xl hover:bg-slate-200/50 dark:hover:bg-white/10 dark:text-slate-300 dark:hover:text-white transition-colors cursor-context-menu"
             @contextmenu.prevent="(e) => openContextMenu(e, element)"
           >
             <span
@@ -399,7 +399,7 @@ defineExpose({ openAdd })
         >
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="openInNewWindow(contextMenuBookmark)"
         >
           新窗口打开
@@ -407,21 +407,21 @@ defineExpose({ openAdd })
         <div class="my-1 border-t border-slate-200 dark:border-white/20" />
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="handleContextTogglePinned(contextMenuBookmark)"
         >
           {{ contextMenuBookmark && pinnedStore.ids.includes(contextMenuBookmark.id) ? '从常用移除' : '添加到常用' }}
         </button>
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="handleContextEdit(contextMenuBookmark)"
         >
           编辑
         </button>
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/5 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-red-50 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
           @click="handleContextDelete(contextMenuBookmark)"
         >
           删除

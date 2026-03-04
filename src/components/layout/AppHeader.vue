@@ -130,7 +130,7 @@ onUnmounted(() => {
       <div class="header-right flex items-center gap-2 shrink-0">
         <button
           type="button"
-          class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/5 dark:hover:bg-white/5 shrink-0"
+          class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 shrink-0"
           :title="themeTitle"
           :aria-label="themeTitle"
           @click="cycleThemeAndPersist"
@@ -148,7 +148,7 @@ onUnmounted(() => {
         </button>
         <RouterLink
           to="/settings"
-          class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+          class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
           aria-label="设置"
         >
           <span class="material-symbols-outlined text-[22px]">settings</span>

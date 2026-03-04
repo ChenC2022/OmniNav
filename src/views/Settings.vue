@@ -656,7 +656,7 @@ const navItems = [
           :href="`#${item.id}`"
           :class="activeSection === item.id
             ? 'flex items-center gap-3 px-4 py-3 rounded-xl bg-primary text-white shadow-lg shadow-primary/20 font-medium text-sm'
-            : 'flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors font-medium text-sm'"
+            : 'flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors font-medium text-sm'"
         >
           <span class="material-symbols-outlined">{{ item.icon }}</span>
           {{ item.label }}
@@ -674,7 +674,7 @@ const navItems = [
         </div>
         <RouterLink
           to="/"
-          class="flex items-center gap-2 shrink-0 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5 transition-colors"
+          class="flex items-center gap-2 shrink-0 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors"
         >
           <span class="material-symbols-outlined text-lg">arrow_back</span>
           返回首页
@@ -812,14 +812,14 @@ const navItems = [
           <div class="md:col-span-2 flex items-center justify-end gap-3 mt-2">
             <button
               type="button"
-              class="flex items-center gap-2 py-3 px-6 rounded-xl border-2 border-primary/30 text-primary font-bold transition-all hover:bg-primary/5 disabled:opacity-50"
+              class="flex items-center gap-2 py-3 px-6 rounded-xl border-2 border-indigo-500/30 dark:border-indigo-400/30 text-indigo-600 dark:text-indigo-400 font-bold transition-all hover:bg-indigo-50 dark:hover:bg-indigo-500/10 disabled:opacity-50"
               :disabled="testingAi"
               @click="testAiConnection"
             >
               <span class="material-symbols-outlined text-lg" :class="testingAi && 'animate-spin'">{{ testingAi ? 'progress_activity' : 'science' }}</span>
               {{ testingAi ? '测试中…' : '测试连接' }}
             </button>
-            <button type="submit" class="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-primary/25 disabled:opacity-50" :disabled="saving">
+            <button type="submit" class="bg-indigo-500 dark:bg-indigo-400 hover:bg-indigo-600 dark:hover:bg-indigo-300 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-50" :disabled="saving">
               {{ saving ? '保存中…' : '保存更改' }}
             </button>
           </div>
@@ -874,7 +874,7 @@ const navItems = [
             <input v-model="weatherCityQuery" type="text" class="settings-input dark-text-94 w-full px-4 py-3 bg-slate-50 border border-slate-200 dark:border-white/20 rounded-xl focus:ring-primary focus:border-primary text-slate-900 dark:text-white" placeholder="输入城市名称..." @input="onWeatherCitySearch" @focus="weatherCityQuery.trim().length >= 2 && (weatherCityDropdown = true)" />
             <div v-if="weatherCityDropdown && (weatherCityResults.length > 0 || weatherCityLoading)" class="settings-dropdown absolute top-full left-0 right-0 mt-1 rounded-xl border border-slate-200 dark:border-white/20 bg-white shadow-lg z-10 max-h-56 overflow-auto">
               <p v-if="weatherCityLoading" class="px-3 py-2 text-sm text-slate-500 dark-text-94">搜索中…</p>
-              <button v-for="item in weatherCityResults" :key="`${item.name}-${item.lat}-${item.lon}`" type="button" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-200/5 dark:hover:bg-white/5 flex justify-between rounded-lg" @click="selectWeatherCity(item)">
+              <button v-for="item in weatherCityResults" :key="`${item.name}-${item.lat}-${item.lon}`" type="button" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-200/50 dark:hover:bg-white/10 flex justify-between rounded-lg" @click="selectWeatherCity(item)">
                 <span class="text-slate-800 dark-text-94">{{ item.name }}</span>
                 <span class="text-slate-500 dark-text-94">{{ item.countryCode }} {{ item.admin1 ? `· ${item.admin1}` : '' }}</span>
               </button>
@@ -910,7 +910,7 @@ const navItems = [
           <div class="p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-center">
             <span class="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600 mb-3 block">upload_file</span>
             <p class="text-sm text-slate-600 dark-text-94 mb-4 font-medium">从本地 JSON 备份文件恢复全部数据。</p>
-            <button type="button" class="w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20" @click="triggerImport">从 JSON 导入</button>
+            <button type="button" class="w-full py-3 bg-indigo-500 dark:bg-indigo-400 text-white font-bold rounded-xl hover:bg-indigo-600 dark:hover:bg-indigo-300 transition-all shadow-lg shadow-indigo-500/20" @click="triggerImport">从 JSON 导入</button>
           </div>
         </div>
         <input ref="importFileInput" type="file" accept=".json,application/json" class="hidden" @change="onImportFile" />
@@ -927,7 +927,7 @@ const navItems = [
             <div class="p-5 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-center">
               <span class="material-symbols-outlined text-3xl text-slate-300 dark:text-slate-600 mb-2 block">upload</span>
               <p class="text-sm text-slate-600 dark-text-94 mb-3 font-medium">从浏览器书签 HTML 导入</p>
-              <button type="button" class="w-full py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 text-sm" @click="triggerBrowserImport">选择 HTML 文件</button>
+              <button type="button" class="w-full py-2.5 bg-indigo-500 dark:bg-indigo-400 text-white font-bold rounded-xl hover:bg-indigo-600 dark:hover:bg-indigo-300 transition-all shadow-lg shadow-indigo-500/20 text-sm" @click="triggerBrowserImport">选择 HTML 文件</button>
             </div>
             <div class="p-5 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-center">
               <span class="material-symbols-outlined text-3xl text-slate-300 dark:text-slate-600 mb-2 block">download</span>
@@ -947,7 +947,7 @@ const navItems = [
           </h3>
           <p class="text-xs text-slate-500 dark-text-94 mb-4">支持 Sun-Panel 导出的 JSON 配置文件。分组将映射为分类，同名分类自动合并，重复 URL 自动跳过。</p>
           <div class="flex items-center gap-4">
-            <button type="button" class="py-2.5 px-6 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 text-sm" @click="triggerSunPanelImport">选择 JSON 文件</button>
+            <button type="button" class="py-2.5 px-6 bg-indigo-500 dark:bg-indigo-400 text-white font-bold rounded-xl hover:bg-indigo-600 dark:hover:bg-indigo-300 transition-all shadow-lg shadow-indigo-500/20 text-sm" @click="triggerSunPanelImport">选择 JSON 文件</button>
           </div>
           <input ref="sunPanelImportFileInput" type="file" accept=".json,application/json" class="hidden" @change="onSunPanelImportFile" />
           <p v-if="sunPanelImportResult" class="mt-3 text-sm" :class="sunPanelImportResult.includes('导入') ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'">{{ sunPanelImportResult }}</p>
@@ -1023,8 +1023,8 @@ const navItems = [
               将用导入的数据覆盖当前书签、分类、置顶与配置（若包含），并同步到云端。是否继续？
             </p>
             <div class="flex justify-end gap-2">
-              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5" @click="cancelImport">取消</button>
-              <button type="button" class="px-3 py-1.5 rounded-xl bg-primary text-white font-medium hover:bg-primary/90" @click="confirmImport">确认导入</button>
+              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10" @click="cancelImport">取消</button>
+              <button type="button" class="px-3 py-1.5 rounded-xl bg-indigo-500 dark:bg-indigo-400 text-white font-medium hover:bg-indigo-600 dark:hover:bg-indigo-300" @click="confirmImport">确认导入</button>
             </div>
           </div>
         </div>
@@ -1052,8 +1052,8 @@ const navItems = [
               <li>· 已存在的相同 URL 将自动跳过</li>
             </ul>
             <div class="flex justify-end gap-2">
-              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5" @click="cancelBrowserImport">取消</button>
-              <button type="button" class="px-3 py-1.5 rounded-xl bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50" :disabled="browserImportLoading" @click="confirmBrowserImport">
+              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10" @click="cancelBrowserImport">取消</button>
+              <button type="button" class="px-3 py-1.5 rounded-xl bg-indigo-500 dark:bg-indigo-400 text-white font-medium hover:bg-indigo-600 dark:hover:bg-indigo-300 disabled:opacity-50" :disabled="browserImportLoading" @click="confirmBrowserImport">
                 {{ browserImportLoading ? '导入中…' : '确认导入' }}
               </button>
             </div>
@@ -1083,8 +1083,8 @@ const navItems = [
               <li>· 已存在的相同 URL 将自动跳过</li>
             </ul>
             <div class="flex justify-end gap-2">
-              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5" @click="cancelSunPanelImport">取消</button>
-              <button type="button" class="px-3 py-1.5 rounded-xl bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50" :disabled="sunPanelImportLoading" @click="confirmSunPanelImport">
+              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10" @click="cancelSunPanelImport">取消</button>
+              <button type="button" class="px-3 py-1.5 rounded-xl bg-indigo-500 dark:bg-indigo-400 text-white font-medium hover:bg-indigo-600 dark:hover:bg-indigo-300 disabled:opacity-50" :disabled="sunPanelImportLoading" @click="confirmSunPanelImport">
                 {{ sunPanelImportLoading ? '导入中…' : '确认导入' }}
               </button>
             </div>
@@ -1109,7 +1109,7 @@ const navItems = [
               将清空所有书签、分类与置顶，并同步到云端。清空后页面会刷新，仅保留「未分类」区域。此操作不可撤销，是否继续？
             </p>
             <div class="flex justify-end gap-2">
-              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/5 dark:hover:bg-white/5" @click="clearAllConfirm = false">取消</button>
+              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10" @click="clearAllConfirm = false">取消</button>
               <button type="button" class="px-3 py-1.5 rounded-xl bg-red-600 text-white font-medium hover:bg-red-500" :disabled="clearAllLoading" @click="clearAllData">清空</button>
             </div>
           </div>
