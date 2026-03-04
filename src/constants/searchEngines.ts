@@ -8,6 +8,8 @@ export const SEARCH_ENGINES: SearchEngine[] = [
   { id: 'google', name: 'Google', url: 'https://www.google.com/search?q=' },
   { id: 'bing', name: 'Bing', url: 'https://www.bing.com/search?q=' },
   { id: 'baidu', name: '百度', url: 'https://www.baidu.com/s?wd=' },
+  { id: 'duckduckgo', name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=' },
+  { id: 'yandex', name: 'Yandex', url: 'https://yandex.com/search/?text=' },
   { id: 'github', name: 'GitHub', url: 'https://github.com/search?q=' },
 ]
 

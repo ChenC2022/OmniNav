@@ -335,6 +335,10 @@ html.dark .card-hover:hover {
   border-left: 3px solid var(--color-primary);
 }
 
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
@@ -348,18 +352,38 @@ html.dark .card-hover:hover {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+html.dark .custom-scrollbar {
+  scrollbar-color: #475569 transparent;
+}
 html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #475569;
 }
 html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #64748b;
 }
-/* 深色模式：所有 custom-scrollbar 轨道与滑块统一风格 */
-html.dark .custom-scrollbar {
-  scrollbar-color: #475569 #1e293b;
+
+/* ========== Toggle 开关 ========== */
+.toggle-track {
+  background: #cbd5e1;
 }
-html.dark .custom-scrollbar::-webkit-scrollbar-track {
-  background: #1e293b;
+.toggle-track.is-on {
+  background: #6366f1;
+}
+.toggle-thumb {
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+html.dark .toggle-track {
+  background: rgba(100, 116, 139, 0.4);
+}
+html.dark .toggle-track.is-on {
+  background: #6366f1;
+}
+html.dark .toggle-track:not(.is-on) .toggle-thumb {
+  background: rgba(100, 116, 139, 0.7);
+}
+html.dark .toggle-track.is-on .toggle-thumb {
+  background: #e2e8f0;
 }
 
 /* ========== 过渡动画（Phase 8） ========== */

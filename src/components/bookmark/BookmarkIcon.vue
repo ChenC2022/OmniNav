@@ -2,7 +2,10 @@
 import { computed, ref } from 'vue'
 import type { Bookmark } from '@/types'
 import { useHealthCheckStore } from '@/stores/healthCheck'
+import { useSettingsStore } from '@/stores/settings'
 import { faviconUrl, faviconFallbackUrl } from '@/utils/favicon'
+
+const settingsStore = useSettingsStore()
 
 const props = withDefaults(
   defineProps<{
@@ -16,6 +19,8 @@ const props = withDefaults(
   }>(),
   { notDraggable: false, noHoverBg: false }
 )
+
+const linkTarget = computed(() => settingsStore.data.linkOpenMode === 'currentTab' ? '_self' : '_blank')
 
 defineEmits<{
   (e: 'edit'): void
@@ -81,7 +86,7 @@ function onIconError() {
 <template>
   <a
     :href="bookmark.url"
-    target="_blank"
+    :target="linkTarget"
     rel="noopener noreferrer"
     :draggable="!notDraggable"
     :class="[

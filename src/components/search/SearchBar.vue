@@ -116,7 +116,8 @@ async function selectEngine(id: string) {
 }
 
 function openBookmark(b: Bookmark) {
-  window.open(b.url, '_blank', 'noopener')
+  const target = settings.data.linkOpenMode === 'currentTab' ? '_self' : '_blank'
+  window.open(b.url, target, 'noopener')
   query.value = ''
 }
 
@@ -132,7 +133,8 @@ function submit() {
     return
   }
   const url = getSearchUrl(currentEngineId.value, q)
-  window.open(url, '_blank', 'noopener')
+  const target = settings.data.linkOpenMode === 'currentTab' ? '_self' : '_blank'
+  window.open(url, target, 'noopener')
   query.value = ''
 }
 

@@ -753,24 +753,22 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           常用
         </h2>
         <label
-          class="inline-flex items-center gap-2.5 cursor-pointer select-none"
-          :title="isEditLayout ? '已开启：拖拽卡片可调整顺序' : '点击开启后，拖拽可调整常用顺序'"
+          class="inline-flex items-center gap-2 cursor-pointer select-none"
+          :title="isEditLayout ? '已开启：拖拽卡片可调整顺序' : '点击开启后，拖拽可调整书签顺序'"
         >
-          <span class="text-sm font-medium text-slate-600 dark:text-slate-400">编辑布局</span>
+          <span class="text-sm font-medium text-slate-600 dark:text-slate-400">拖动书签</span>
           <span
-            class="relative inline-flex h-8 w-12 shrink-0 rounded-xl border transition-colors duration-200 ease-in-out focus-within:ring-2 focus-within:ring-indigo-400 focus-within:ring-offset-2 focus-within:ring-offset-white dark:focus-within:ring-offset-slate-900"
-            :class="isEditLayout
-              ? 'bg-indigo-500 border-indigo-500 dark:bg-indigo-500 dark:border-indigo-500'
-              : 'glass-translucent border border-slate-200/60 dark:border-white/20'"
+            class="toggle-track relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ease-in-out"
+            :class="isEditLayout ? 'is-on' : ''"
           >
             <input
               v-model="isEditLayout"
               type="checkbox"
-              class="sr-only peer"
+              class="sr-only"
             >
             <span
-              class="pointer-events-none inline-block h-6 w-6 rounded-lg bg-white shadow-sm transition-transform duration-200 ease-in-out mt-1 ml-1"
-              :class="isEditLayout ? 'translate-x-4' : 'translate-x-0'"
+              class="toggle-thumb pointer-events-none inline-block size-3.5 rounded-full transition-transform duration-200 ease-in-out mt-[3px] ml-[3px]"
+              :class="isEditLayout ? 'translate-x-[14px]' : 'translate-x-0'"
             />
           </span>
         </label>
@@ -811,7 +809,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         </div>
       </div>
       <p v-if="pinnedBookmarks.length === 0" class="text-sm text-slate-500 dark:text-white/90 mt-4">
-        暂无常用，可通过分类内书签右键「添加到常用」添加；开启「编辑布局」后可拖拽调整顺序
+        暂无常用，可通过分类内书签右键「添加到常用」添加；开启「拖动书签」后可拖拽调整顺序
       </p>
     </section>
 

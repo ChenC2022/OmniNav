@@ -30,6 +30,8 @@ export interface Category {
 export interface Settings {
   theme?: ThemeMode
   defaultSearchEngine?: string
+  /** 链接打开方式：新标签页 (默认) 或 当前页 */
+  linkOpenMode?: 'newTab' | 'currentTab'
   ai?: {
     provider?: string
     baseUrl?: string
