@@ -6,7 +6,10 @@ dist
 .DS_Store
 *.tsbuildinfo
 
-# Cursor / Agent 本地配置（不影响构建与部署）
+# Cursor / Agent 本地配置（不参与 Git 同步）
+.agent
 .agent/
+.agents
 .agents/
 .cursor/skills/
+skills-lock.json
