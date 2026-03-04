@@ -33,28 +33,60 @@ const bookmarkQuery = computed(() => {
   return t.startsWith('@') ? t.slice(1).trim().toLowerCase() : ''
 })
 
+/** 多关键词（空格分隔），用于 AND 收窄召回 */
+const bookmarkTokens = computed(() => bookmarkQuery.value.split(/\s+/).filter(Boolean))
+
+/** 分类名缓存：categoryId -> lowerCase(name) */
+const categoryNameLowerById = computed(() => {
+  const m = new Map<string, string>()
+  for (const c of categoriesStore.items) {
+    if (c?.id) m.set(c.id, (c.name ?? '').toLowerCase())
+  }
+  return m
+})
+
 const filteredBookmarks = computed(() => {
-  const q = bookmarkQuery.value
-  if (!q) return bookmarksStore.items
-  const matched = bookmarksStore.items.filter(
-    (b) =>
-      b.title.toLowerCase().includes(q) ||
-      b.url.toLowerCase().includes(q) ||
-      (b.description && b.description.toLowerCase().includes(q))
-  )
-  // 排序优先级：标题 > 描述 > URL（数字越小越靠前）
-  return matched.slice().sort((a, b) => {
-    const rank = (x: Bookmark) => {
-      const t = x.title.toLowerCase().includes(q)
-      const d = x.description?.toLowerCase().includes(q)
-      const u = x.url.toLowerCase().includes(q)
-      if (t) return 0
-      if (d) return 1
-      if (u) return 2
-      return 3
+  const tokens = bookmarkTokens.value
+  if (tokens.length === 0) return bookmarksStore.items
+
+  const catNameMap = categoryNameLowerById.value
+
+  type Ranked = { b: Bookmark; worstRank: number; sumRank: number }
+
+  const ranked: Ranked[] = []
+
+  for (const b of bookmarksStore.items) {
+    const title = b.title.toLowerCase()
+    const url = b.url.toLowerCase()
+    const desc = b.description ? b.description.toLowerCase() : ''
+    const cat = catNameMap.get(b.categoryId) ?? ''
+
+    // 每个 token 必须命中任一字段；并记录该 token 的命中“最佳”字段 rank
+    let worstRank = 0
+    let sumRank = 0
+    let ok = true
+
+    for (const q of tokens) {
+      let r = 4
+      if (title.includes(q)) r = 0
+      else if (desc && desc.includes(q)) r = 1
+      else if (url.includes(q)) r = 2
+      else if (cat && cat.includes(q)) r = 3
+
+      if (r === 4) {
+        ok = false
+        break
+      }
+      worstRank = Math.max(worstRank, r)
+      sumRank += r
     }
-    return rank(a) - rank(b)
-  })
+
+    if (ok) ranked.push({ b, worstRank, sumRank })
+  }
+
+  // 排序优先级：标题 > 描述 > URL > 分类；多关键词时先比较“最差命中字段”，再比较总和
+  ranked.sort((a, b) => (a.worstRank - b.worstRank) || (a.sumRank - b.sumRank))
+  return ranked.map((x) => x.b)
 })
 const displayBookmarks = computed(() => filteredBookmarks.value.slice(0, 20))
 
@@ -177,7 +209,7 @@ function onKeydown(e: KeyboardEvent) {
         v-model="query"
         type="text"
         class="search-bar-input flex-1 min-w-0 h-full py-0 pl-2 pr-2 ml-2 bg-transparent text-slate-800 dark:text-white text-sm placeholder-slate-400 dark:placeholder-white/60 focus:outline-none border-0"
-        placeholder="搜索网页或 @ 搜索书签，Tab按键可快速切换"
+        :placeholder="isBookmarkMode ? '空格分隔多关键词可收窄结果，支持标题、说明、链接、分类' : '搜索网页或 @ 搜索书签，Tab 可快速切换'"
         autocomplete="off"
         aria-label="搜索"
       />
@@ -212,6 +244,10 @@ function onKeydown(e: KeyboardEvent) {
       v-show="isBookmarkMode"
       class="search-dropdown search-bookmark-dropdown custom-scrollbar absolute top-full left-0 right-0 mt-2 py-2 rounded-xl border border-slate-200 dark:border-white/20 shadow-xl z-20 bg-white dark:bg-slate-900 max-h-[60vh] overflow-y-auto"
     >
+      <!-- 使用提示 -->
+      <p class="px-3 pt-1 pb-2 text-xs text-slate-400 dark:text-white/35 border-b border-slate-100 dark:border-white/10 mb-1">
+        支持标题、说明、链接、分类名 · 空格分隔多关键词可收窄结果
+      </p>
       <template v-if="displayBookmarks.length">
         <button
           v-for="(b, idx) in displayBookmarks"
