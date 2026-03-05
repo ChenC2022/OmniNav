@@ -101,11 +101,24 @@ npm run dev:all
 
 ---
 
-## 部署
+## 用户部署
+
+### 方式一：GitHub 集成（推荐）
+
+1. 在 [Cloudflare Dashboard](https://dash.cloudflare.com) 创建 **Workers & Pages** → **Pages** → **Connect to Git**，连接本仓库。
+2. 构建配置：Build command 填 `npm run build`，Build output directory 填 `dist`。
+3. **配置主人密码**：Settings → Environment variables → 新增 `OMNINAV_OWNER_PASSWORD`（勾选 Encrypt 作为 Secret），值填你的登录密码。
+4. **绑定 KV**：Settings → Functions → KV namespace bindings → 添加 `KV_OMNINAV`，选择或新建 KV 命名空间。
+5. 保存后触发部署，完成后访问站点即可使用。
+
+### 方式二：Wrangler CLI
 
 ```bash
-npm run build
-npx wrangler pages deploy dist
+npm run deploy
 ```
 
-在 Cloudflare 控制台为 Pages 项目绑定 KV 命名空间 `KV_OMNINAV`。完整步骤见 [部署指南](docs/DEPLOY_TO_CLOUDFLARE.md)。
+部署后需在 Cloudflare 控制台为 Pages 项目绑定 KV 命名空间 `KV_OMNINAV`，并配置 `OMNINAV_OWNER_PASSWORD`（见方式一）。
+
+### 详细说明
+
+完整步骤（含 KV 创建、自定义域名、本地开发配置等）见 [部署指南](docs/DEPLOY_TO_CLOUDFLARE.md)。
