@@ -42,6 +42,17 @@ async function requireAuth(
   return next()
 }
 
+/** 从 KV 读取 key 并解析为 JSON，缺失或非法时返回 null */
+async function getJson<T>(kv: KVNamespace, key: string): Promise<T | null> {
+  const raw = await kv.get(key)
+  if (raw == null) return null
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
+}
+
 // ---------- SSRF 防护：禁止内网与元数据地址 ----------
 function isUrlAllowed(url: URL): boolean {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
@@ -191,9 +202,12 @@ app.get('/favicon', async (c) => {
       return new Response(blob, { headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' } })
     }
   } catch {
-    /* 两路都失败则返回 502 */
+    /* 两路都失败则返回透明占位图，避免 502 导致控制台报错 */
   }
-  return c.json({ ok: false, error: 'Favicon unavailable' }, 502)
+  const transparent1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+  return new Response(Uint8Array.from(atob(transparent1x1), (c) => c.charCodeAt(0)), {
+    headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' },
+  })
 })
 
 // GET /api/weather、geocode、reverse-geocode（公开）
