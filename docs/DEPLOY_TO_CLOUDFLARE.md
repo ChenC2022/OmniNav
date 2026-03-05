@@ -159,7 +159,7 @@ npm run deploy
 
 ### 主人密码（本地开发）
 
-在项目根目录创建 `.dev.vars`（已加入 .gitignore），内容一行：`OMNINAV_OWNER_PASSWORD=你的密码`。不创建则本地使用首次访问者设密流程。生产环境配置见上方 **步骤 4**。
+**默认与生产一致**：不创建 `.dev.vars` 或不在其中配置 `OMNINAV_OWNER_PASSWORD`，首次打开会显示「首次使用，请设置密码」。若已配置，删除该行或移除 `.dev.vars` 即可恢复首次设密流程。若需测试「部署密码」流程，可复制 `.dev.vars.example` 为 `.dev.vars` 并填写密码。生产环境配置见上方 **步骤 4**。
 
 ---
 
