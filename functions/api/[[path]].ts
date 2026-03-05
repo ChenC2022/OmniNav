@@ -33,12 +33,20 @@ async function requireAuth(
 ): Promise<Response> {
   const path = new URL(c.req.url).pathname
   if (AUTH_PUBLIC_PATHS.includes(path)) return next()
-  const sessionId = parseSessionId(c.req.header('Cookie'))
+  const cookieHeader = c.req.header('Cookie')
+  const sessionId = parseSessionId(cookieHeader)
+
+  // Debug logging
+  console.log(`[Auth Debug] Path: ${path}, SessionId: ${sessionId ? 'exists' : 'null'}, CookieHeader: ${cookieHeader ? 'present' : 'absent'}`)
+
   if (!sessionId) return c.json({ ok: false, error: 'Unauthorized' }, 401)
   const kv = c.env.KV_OMNINAV
   if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
   const valid = await kv.get(`session:${sessionId}`)
-  if (!valid) return c.json({ ok: false, error: 'Unauthorized' }, 401)
+  if (!valid) {
+    console.log(`[Auth Debug] Invalid or expired SessionId: ${sessionId}`)
+    return c.json({ ok: false, error: 'Unauthorized' }, 401)
+  }
   return next()
 }
 
@@ -101,15 +109,19 @@ app.post('/auth/initial-setup', async (c) => {
     await kv.put(rateKey, String(count + 1), { expirationTtl: LOGIN_RATE_LIMIT_WINDOW })
     return c.json({ ok: false, error: '新密码至少 4 位' }, 400)
   }
-  await kv.delete(rateKey).catch(() => {})
+  await kv.delete(rateKey).catch(() => { })
   const newHash = await hashPassword(newPwd)
   await kv.put(KV_AUTH_PASSWORD_HASH, newHash)
   await kv.put(KV_AUTH_FIRST_LOGIN_DONE, '1')
   const sessionId = crypto.randomUUID()
   await kv.put(`session:${sessionId}`, '1', { expirationTtl: SESSION_TTL })
   const hostname = new URL(c.req.url).hostname.toLowerCase()
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
-  const cookie = `${SESSION_COOKIE_NAME}=${sessionId}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL}${isLocalhost ? '' : '; Secure'}`
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  const cookieOptions = `; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_TTL}${isLocalhost ? '' : '; Secure'}`
+  const cookie = `${SESSION_COOKIE_NAME}=${sessionId}${cookieOptions}`
+
+  console.log(`[Auth Debug] Initial Setup. Hostname: ${hostname}, IsLocalhost: ${isLocalhost}, Cookie: ${cookie}`)
+
   c.header('Set-Cookie', cookie)
   return c.json({ ok: true })
 })
@@ -143,12 +155,16 @@ app.post('/auth/login', async (c) => {
     await kv.put(rateKey, String(count + 1), { expirationTtl: LOGIN_RATE_LIMIT_WINDOW })
     return c.json({ ok: false, error: 'Invalid password' }, 401)
   }
-  await kv.delete(rateKey).catch(() => {})
+  await kv.delete(rateKey).catch(() => { })
   const sessionId = crypto.randomUUID()
   await kv.put(`session:${sessionId}`, '1', { expirationTtl: SESSION_TTL })
   const hostname = new URL(c.req.url).hostname.toLowerCase()
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
-  const cookie = `${SESSION_COOKIE_NAME}=${sessionId}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL}${isLocalhost ? '' : '; Secure'}`
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  const cookieOptions = `; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_TTL}${isLocalhost ? '' : '; Secure'}`
+  const cookie = `${SESSION_COOKIE_NAME}=${sessionId}${cookieOptions}`
+
+  console.log(`[Auth Debug] Login. Hostname: ${hostname}, IsLocalhost: ${isLocalhost}, Cookie: ${cookie}`)
+
   c.header('Set-Cookie', cookie)
   const firstLoginDone = await kv.get(KV_AUTH_FIRST_LOGIN_DONE)
   return c.json(firstLoginDone ? { ok: true } : { ok: true, firstLogin: true })
@@ -286,8 +302,8 @@ app.post('/auth/logout', async (c) => {
   const kv = c.env.KV_OMNINAV
   if (sessionId && kv) await kv.delete(`session:${sessionId}`)
   const hostname = new URL(c.req.url).hostname.toLowerCase()
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
-  const clearCookie = `${SESSION_COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isLocalhost ? '' : '; Secure'}`
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  const clearCookie = `${SESSION_COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${isLocalhost ? '' : '; Secure'}`
   c.header('Set-Cookie', clearCookie)
   return c.json({ ok: true })
 })

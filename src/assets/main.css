@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* 深色模式由应用通过 html.dark 切换，不使用系统 prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei';
   /* 紫/蓝/绿渐变风格主色：柔和紫与靛蓝 */
@@ -86,6 +89,36 @@ html.dark .search-mode-tag--bookmark {
 html.dark .search-mode-tag--bookmark:hover {
   background: rgba(129, 140, 248, 0.25);
   color: #c7d2fe;
+}
+
+/* 深色模式：书签/常用区右键菜单、分类设置菜单（Teleport 到 body，强制深色底） */
+html.dark .bookmark-context-menu,
+html.dark .menu-pop-root {
+  background-color: #0f172a !important;
+  background: rgba(15, 23, 42, 0.98) !important;
+  backdrop-filter: blur(12px);
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+html.dark .bookmark-context-menu button,
+html.dark .menu-pop-root button {
+  color: #94a3b8 !important;
+}
+html.dark .bookmark-context-menu button:hover,
+html.dark .menu-pop-root button:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+/* 分类设置菜单（齿轮下拉，与上面共用 menu-pop-root 或单独类） */
+html.dark .category-settings-menu {
+  background-color: #0f172a !important;
+  background: rgba(15, 23, 42, 0.98) !important;
+  backdrop-filter: blur(12px);
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+html.dark .category-settings-menu button {
+  color: #94a3b8 !important;
+}
+html.dark .category-settings-menu button:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* 搜索框下拉菜单：完全不透明（浅色/深色一致） */

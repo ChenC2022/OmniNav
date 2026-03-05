@@ -237,8 +237,11 @@ async function submitSetPassword() {
 
     <!-- 登录表单 -->
     <div v-else class="w-full max-w-sm rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur border border-slate-200 dark:border-white/10 p-6 shadow-lg">
-      <h1 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-1">OmniNav</h1>
-      <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">请输入密码</p>
+      <div class="flex flex-col items-center mb-4">
+        <img src="/logo.svg" alt="OmniNav" class="size-16 rounded-2xl shadow-lg mb-3" />
+        <h1 class="text-lg font-semibold text-slate-800 dark:text-slate-100">OmniNav</h1>
+      </div>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">请输入密码</p>
       <form @submit.prevent="submit" class="space-y-4">
         <input
           v-model="password"

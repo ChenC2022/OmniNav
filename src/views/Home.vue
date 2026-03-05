@@ -25,6 +25,10 @@ const categoriesStore = useCategoriesStore()
 const saveBookmarks = inject<() => Promise<void>>('saveBookmarks')
 const saveCategories = inject<() => Promise<void>>('saveCategories')
 const savePinned = inject<() => Promise<void>>('savePinned')
+
+// Quote data from shared composable
+import { useQuotes } from '@/composables/useQuotes'
+const { displayQuote, nextQuote } = useQuotes()
 const pinnedStore = usePinnedStore()
 const { checkOne } = useHealthCheck()
 onMounted(() => {
@@ -363,6 +367,8 @@ function runCheckAndCleanupForCategory(categoryId: string) {
   runCheckAndCleanup({ type: 'category', categoryId })
 }
 provide('runCheckAndCleanupForCategory', runCheckAndCleanupForCategory)
+/** 未分类分类 ID，供分类内书签右键「移入未分类」使用 */
+provide('uncategorizedCategoryId', computed(() => uncategorizedCategory.value?.id ?? null))
 
 function closeCleanInvalidModal() {
   cleanInvalidModalOpen.value = false
@@ -747,12 +753,33 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
 
 <template>
   <div class="home w-full max-w-[1920px] mx-auto px-0">
+    <!-- 移动端搜索栏：仅在小屏下显示（桌面端已在顶部栏内） -->
+    <section class="search-in-page mb-6 sm:hidden w-full flex justify-center">
+      <div class="w-full max-w-2xl px-1">
+        <SearchBar />
+      </div>
+    </section>
+
     <section class="big-icons mb-8 sm:mb-12">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-5">
-        <h2 class="section-title text-lg font-bold flex items-center gap-2.5 text-slate-800 dark-text-94">
-          <span class="material-symbols-outlined text-indigo-500 dark:text-indigo-400 text-[22px]">push_pin</span>
-          常用
-        </h2>
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+          <h2 class="section-title text-lg font-bold flex items-center gap-2.5 text-slate-800 dark-text-94 shrink-0">
+            <span class="material-symbols-outlined text-indigo-500 dark:text-indigo-400 text-[22px]">push_pin</span>
+            常用
+          </h2>
+          <!-- 励志语：与常用同行展示 -->
+          <button
+            v-if="displayQuote"
+            type="button"
+            class="hidden sm:flex items-center justify-center gap-1.5 min-w-0 flex-1 rounded-lg px-2.5 py-1 hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            title="点击切换下一条"
+            @click="nextQuote()"
+          >
+            <span class="text-xs shrink-0">✨</span>
+            <span class="text-xs text-slate-400 dark:text-slate-500 italic truncate min-w-0">{{ displayQuote }}</span>
+            <span class="text-xs shrink-0">✨</span>
+          </button>
+        </div>
         <label
           class="inline-flex items-center gap-2 cursor-pointer select-none"
           :title="isEditLayout ? '已开启：拖拽卡片可调整顺序' : '点击开启后，拖拽可调整书签顺序'"
@@ -812,13 +839,6 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
       <p v-if="pinnedBookmarks.length === 0" class="text-sm text-slate-500 dark:text-white/90 mt-4">
         暂无常用，可通过分类内书签右键「添加到常用」添加；开启「拖动书签」后可拖拽调整顺序
       </p>
-    </section>
-
-    <!-- 搜索栏：与顶部励志语对换位置，置于常用与分类之间 -->
-    <section class="search-in-page mb-8 sm:mb-10 w-full flex justify-center">
-      <div class="w-full max-w-2xl px-1">
-        <SearchBar />
-      </div>
     </section>
 
     <section class="categories">
@@ -1293,12 +1313,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         <div
           v-if="pinnedMenuOpen && pinnedMenuBookmark"
           ref="pinnedMenuRef"
-          class="fixed z-[100] min-w-[140px] py-1.5 bg-white dark:bg-white/10 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 dark:border-white/20 menu-pop-root"
+          class="fixed z-[100] inline-flex flex-col min-w-[7.5rem] py-1.5 bg-white dark:bg-slate-800/95 dark:backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 dark:border-slate-600 menu-pop-root"
           :style="{ left: `${pinnedMenuPos.x}px`, top: `${pinnedMenuPos.y}px` }"
         >
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="pinnedOpenInNewWindow(pinnedMenuBookmark)"
         >
           新窗口打开
@@ -1306,7 +1326,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         <div class="my-1 border-t border-slate-200 dark:border-slate-600" />
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="removeFromPinned(pinnedMenuBookmark)"
         >
           从常用移除
@@ -1314,6 +1334,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         </div>
       </Transition>
     </Teleport>
+
+
 
     <CategoryForm
       v-model="categoryFormOpen"

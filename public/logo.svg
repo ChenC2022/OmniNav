@@ -1,0 +1,75 @@
+    <svg class="logo-preview" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <!-- 帆船渐变 -->
+            <linearGradient id="sailGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#C7B8FF;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#7C4DFF;stop-opacity:1" />
+            </linearGradient>
+            
+            <!-- 船身渐变 -->
+            <linearGradient id="hullGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#7C4DFF;stop-opacity:1" />
+            </linearGradient>
+
+            <!-- 北极星发光滤镜 -->
+            <filter id="starGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="15" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+        </defs>
+
+        <!-- 背景容器 -->
+        <rect width="1024" height="1024" rx="240" fill="#141521" />
+
+        <!-- 装饰性背景星点 -->
+        <circle cx="200" cy="300" r="2" fill="white" opacity="0.3" />
+        <circle cx="800" cy="150" r="1.5" fill="white" opacity="0.2" />
+        <circle cx="700" cy="700" r="2.5" fill="white" opacity="0.3" />
+
+        <!-- 整体组合 -->
+        <g transform="translate(150, 100)">
+            
+            <!-- 能量轨迹 (动态) -->
+            <g opacity="0.6">
+                <path d="M50 630 L450 630" stroke="url(#hullGradient)" stroke-width="4" stroke-dasharray="10,20">
+                    <animate attributeName="stroke-dashoffset" from="30" to="0" dur="2s" repeatCount="indefinite" />
+                </path>
+                <path d="M100 660 L400 660" stroke="#3B82F6" stroke-width="2" opacity="0.4">
+                    <animate attributeName="stroke-dashoffset" from="30" to="0" dur="3s" repeatCount="indefinite" />
+                </path>
+            </g>
+
+            <!-- 帆船主体 -->
+            <g transform="translate(0, 100)">
+                <!-- 后帆 -->
+                <path d="M150 480 L280 120 L300 480 Z" fill="url(#sailGradient)" opacity="0.5">
+                    <animateTransform attributeName="transform" type="translate" values="0,0; 5,-8; 0,0" dur="5s" repeatCount="indefinite" />
+                </path>
+
+                <!-- 主帆 (采用更锋利的切角，呼应北极星) -->
+                <path d="M320 510 L580 50 L630 510 Z" fill="url(#sailGradient)">
+                    <animateTransform attributeName="transform" type="translate" values="0,0; -5,-12; 0,0" dur="4s" repeatCount="indefinite" />
+                </path>
+
+                <!-- 船身 -->
+                <path d="M80 550 C 250 535, 550 535, 720 550 L 650 640 L 150 640 Z" fill="url(#hullGradient)" />
+            </g>
+
+            <!-- 北极星 (Polaris) -->
+            <g transform="translate(600, 50)" filter="url(#starGlow)">
+                <!-- 十字星芒 -->
+                <path d="M0 -60 L10 -10 L60 0 L10 10 L0 60 L-10 10 L-60 0 L-10 -10 Z" fill="white">
+                    <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite" />
+                    <animateTransform attributeName="transform" type="scale" values="1;1.1;1" dur="3s" repeatCount="indefinite" />
+                </path>
+                <!-- 核心光点 -->
+                <circle r="12" fill="white" />
+                <!-- 扩散光圈 -->
+                <circle r="20" fill="none" stroke="white" stroke-width="2" opacity="0.3">
+                    <animate attributeName="r" from="20" to="100" dur="2.5s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" from="0.4" to="0" dur="2.5s" repeatCount="indefinite" />
+                </circle>
+            </g>
+        </g>
+    </svg>

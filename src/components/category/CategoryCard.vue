@@ -37,6 +37,7 @@ const bookmarksStore = useBookmarksStore()
 const saveBookmarks = inject<() => Promise<void>>('saveBookmarks')
 const savePinned = inject<() => Promise<void>>('savePinned')
 const runCheckAndCleanupForCategory = inject<(categoryId: string) => void>('runCheckAndCleanupForCategory')
+const uncategorizedCategoryId = inject<import('vue').ComputedRef<string | null> | null>('uncategorizedCategoryId')
 const pinnedStore = usePinnedStore()
 const privateStore = usePrivateCategoriesStore()
 
@@ -69,11 +70,8 @@ const bookmarksInCategory = computed(() =>
     .sort((a, b) => a.order - b.order)
 )
 
-/** 该分类下是否有书签在常用区：有则不能直接删除分类 */
-const hasPinnedInCategory = computed(() =>
-  bookmarksInCategory.value.some((b) => pinnedStore.ids.includes(b.id))
-)
-const canDeleteCategory = computed(() => !hasPinnedInCategory.value)
+/** 允许删除分类（删除时书签会移入未分类，不再因常用书签而禁止） */
+const canDeleteCategory = true
 
 const list = ref<Bookmark[]>([])
 watch(bookmarksInCategory, (v) => { list.value = [...v] }, { immediate: true })
@@ -124,18 +122,32 @@ function onListChange(evt: { added?: { element: Bookmark; newIndex: number }; re
   }
 }
 
-// 右键上下文菜单
+// 右键上下文菜单（未分类等底部区域时向上展开，避免被裁切）
+const CONTEXT_MENU_ESTIMATE_HEIGHT = 240
 const contextMenuOpen = ref(false)
-const contextMenuPos = ref({ x: 0, y: 0 })
+const contextMenuPos = ref<{ x: number; y: number; openUpward?: boolean; bottom?: number }>({ x: 0, y: 0 })
 const contextMenuBookmark = ref<Bookmark | null>(null)
 const contextMenuRef = ref<HTMLElement | null>(null)
 
 function openContextMenu(e: MouseEvent, bookmark: Bookmark) {
   e.preventDefault()
   contextMenuBookmark.value = bookmark
-  contextMenuPos.value = { x: e.clientX, y: e.clientY }
+  const x = e.clientX
+  const y = e.clientY
+  const openUpward = y + CONTEXT_MENU_ESTIMATE_HEIGHT > window.innerHeight
+  contextMenuPos.value = openUpward
+    ? { x, y, openUpward: true, bottom: window.innerHeight - y + 6 }
+    : { x, y }
   contextMenuOpen.value = true
 }
+
+const contextMenuStyle = computed(() => {
+  const pos = contextMenuPos.value
+  if (pos.openUpward && pos.bottom != null) {
+    return { left: `${pos.x}px`, bottom: `${pos.bottom}px` }
+  }
+  return { left: `${pos.x}px`, top: `${pos.y}px` }
+})
 
 function closeContextMenu() {
   contextMenuOpen.value = false
@@ -160,6 +172,21 @@ function handleContextDelete(bookmark: Bookmark) {
 async function handleContextTogglePinned(bookmark: Bookmark) {
   pinnedStore.toggle(bookmark.id)
   await savePinned?.()
+  closeContextMenu()
+}
+
+/** 移入未分类：仅当存在未分类且当前不是未分类时可用 */
+const showMoveToUncategorized = computed(() => {
+  const id = uncategorizedCategoryId?.value ?? null
+  return id != null && id !== props.category.id
+})
+function handleContextMoveToUncategorized(bookmark: Bookmark) {
+  const targetId = uncategorizedCategoryId?.value ?? null
+  if (targetId && bookmark?.id) {
+    const order = bookmarksStore.items.filter((b) => b.categoryId === targetId).length
+    bookmarksStore.updateBookmark(bookmark.id, { categoryId: targetId, order })
+    saveBookmarks?.()
+  }
   closeContextMenu()
 }
 
@@ -270,7 +297,7 @@ defineExpose({ openAdd })
         <button
           ref="settingsTriggerRef"
           type="button"
-          class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 bg-transparent dark:bg-slate-700/80 hover:bg-slate-200/50 dark:hover:bg-slate-600/80 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
           title="设置"
           aria-haspopup="menu"
           :aria-expanded="settingsMenuOpen"
@@ -286,7 +313,7 @@ defineExpose({ openAdd })
         <div
           v-if="settingsMenuOpen"
           ref="settingsMenuRef"
-          class="fixed z-[110] flex flex-col rounded-xl shadow-xl border border-slate-200 dark:border-white/20 bg-white dark:bg-white/10 dark:backdrop-blur-xl py-0.5 pointer-events-auto"
+          class="category-settings-menu fixed z-[110] flex flex-col rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800/95 dark:backdrop-blur-xl py-0.5 pointer-events-auto"
           :style="{ top: `${settingsMenuPos.top}px`, right: `${settingsMenuPos.right}px` }"
         >
           <button
@@ -308,11 +335,9 @@ defineExpose({ openAdd })
           </button>
           <button
             type="button"
-            class="p-1.5 rounded-lg transition-colors"
-            :class="canDeleteCategory ? 'text-slate-600 dark:text-slate-300 hover:bg-red-500/10 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-400' : 'text-slate-400 dark:text-slate-500 cursor-not-allowed'"
-            :title="canDeleteCategory ? '删除分类' : '该分类下有书签在常用区，请先从常用区移除后再删除'"
-            :disabled="!canDeleteCategory"
-            @click.stop="canDeleteCategory && (closeSettingsMenu(), emit('deleteCategory'))"
+            class="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-red-500/10 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+            title="删除分类"
+            @click.stop="closeSettingsMenu(); emit('deleteCategory')"
           >
             <span class="material-symbols-outlined text-lg block">delete</span>
           </button>
@@ -353,7 +378,9 @@ defineExpose({ openAdd })
         item-key="id"
         group="bookmarks"
         :handle="editLayout ? '.bookmark-drag-handle' : undefined"
-        :class="hideTitle ? 'contents' : 'grid grid-cols-2 gap-2'"
+        :class="[
+          hideTitle ? (noAddInGrid && list.length === 0 ? 'min-h-[3rem] grid grid-cols-1 gap-2 place-items-center' : 'contents') : 'grid grid-cols-2 gap-2'
+        ]"
         ghost-class="opacity-50"
         :disabled="!editLayout"
         @end="onDragEnd"
@@ -394,34 +421,42 @@ defineExpose({ openAdd })
         <div
           v-if="contextMenuOpen && contextMenuBookmark"
           ref="contextMenuRef"
-          class="fixed z-[100] min-w-[140px] py-1.5 bg-white dark:bg-white/10 dark:backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 dark:border-white/20"
-          :style="{ left: `${contextMenuPos.x}px`, top: `${contextMenuPos.y}px` }"
+          class="bookmark-context-menu fixed z-[100] inline-flex flex-col min-w-[7.5rem] py-1.5 bg-white dark:bg-slate-800/95 dark:backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 dark:border-slate-600"
+          :style="contextMenuStyle"
         >
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="openInNewWindow(contextMenuBookmark)"
         >
           新窗口打开
         </button>
-        <div class="my-1 border-t border-slate-200 dark:border-white/20" />
+        <div class="my-1 border-t border-slate-200 dark:border-slate-600" />
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="handleContextTogglePinned(contextMenuBookmark)"
         >
           {{ contextMenuBookmark && pinnedStore.ids.includes(contextMenuBookmark.id) ? '从常用移除' : '添加到常用' }}
         </button>
         <button
+          v-if="showMoveToUncategorized"
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          @click="handleContextMoveToUncategorized(contextMenuBookmark)"
+        >
+          移入未分类
+        </button>
+        <button
+          type="button"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="handleContextEdit(contextMenuBookmark)"
         >
           编辑
         </button>
         <button
           type="button"
-          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-white hover:bg-red-50 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
+          class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
           @click="handleContextDelete(contextMenuBookmark)"
         >
           删除
@@ -429,6 +464,7 @@ defineExpose({ openAdd })
         </div>
       </Transition>
     </Teleport>
+
     <BookmarkForm
       v-model="formOpen"
       :category-id="category.id"

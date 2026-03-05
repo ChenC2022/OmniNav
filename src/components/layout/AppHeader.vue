@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, provide, inject, onMounted, onUnmounted } from 'vue'
+import { ref, computed, provide, inject } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import ClockWidget from './ClockWidget.vue'
 import WeatherWidget from './WeatherWidget.vue'
+import SearchBar from '@/components/search/SearchBar.vue'
 import { useUiStore } from '@/stores/ui'
-import { get12StaticQuotes, getRandomQuote } from '@/data/quotes'
 import { apiFetch } from '@/utils/api'
 
 const router = useRouter()
@@ -30,79 +30,16 @@ const themeTitle = computed(() => {
   return '主题：深色（点击切换）'
 })
 
-const QUOTE_COUNT = 12
-const ROTATE_INTERVAL_MS = 5 * 60 * 1000 // 5 分钟
-
 const headerCityName = ref('')
-const quoteList = ref<string[]>([])
-const quoteIndex = ref(0)
-const quoteTimerId = ref<ReturnType<typeof setInterval> | null>(null)
-
-const displayQuote = computed(() => quoteList.value[quoteIndex.value] ?? '')
 
 provide('setHeaderCityName', (name: string) => {
   headerCityName.value = name
 })
 
-const QUOTE_PROMPT = `请随机生成 12 句简短的中文励志语或格言，用于个人首页轮播展示。每句单独一行，共 12 行；不要编号、不要引号、不要多余解释。`
-
-function parseQuotesFromResponse(text: string): string[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((s) => s.replace(/^[\d、\.\s]+/, '').trim())
-    .filter(Boolean)
-  return lines.slice(0, QUOTE_COUNT)
-}
-
-function ensure12Quotes(list: string[]): string[] {
-  if (list.length >= QUOTE_COUNT) return list.slice(0, QUOTE_COUNT)
-  const result = [...list]
-  while (result.length < QUOTE_COUNT) result.push(getRandomQuote())
-  return result
-}
-
-async function fetchQuotesFromAI() {
-  try {
-    const res = await apiFetch('/api/ai/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: QUOTE_PROMPT }],
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error((data as { error?: string })?.error ?? '请求失败')
-    const text = ((data as { message?: string })?.message ?? '').trim()
-    const parsed = parseQuotesFromResponse(text)
-    if (parsed.length > 0) quoteList.value = ensure12Quotes(parsed)
-  } catch {
-    quoteList.value = get12StaticQuotes()
-  }
-}
-
 async function logout() {
   await apiFetch('/api/auth/logout', { method: 'POST' })
   router.push('/login')
 }
-
-function nextQuote() {
-  const len = Math.max(1, quoteList.value.length)
-  quoteIndex.value = (quoteIndex.value + 1) % len
-}
-
-function startQuoteTimer() {
-  quoteTimerId.value = setInterval(nextQuote, ROTATE_INTERVAL_MS)
-}
-
-onMounted(() => {
-  quoteList.value = get12StaticQuotes()
-  fetchQuotesFromAI()
-  startQuoteTimer()
-})
-
-onUnmounted(() => {
-  if (quoteTimerId.value) clearInterval(quoteTimerId.value)
-})
 </script>
 
 <template>
@@ -114,25 +51,15 @@ onUnmounted(() => {
           class="flex items-center gap-2.5 shrink-0 rounded-xl py-1.5 -ml-1 transition-opacity hover:opacity-90 text-indigo-600 dark:text-indigo-300"
           aria-label="OmniNav 首页"
         >
-          <span class="size-9 bg-indigo-500 dark:bg-indigo-400 rounded-xl flex items-center justify-center text-white shadow-lg">
-            <span class="material-symbols-outlined text-xl">rocket_launch</span>
-          </span>
+          <img src="/logo.svg" alt="OmniNav" class="size-9 rounded-xl shadow-lg" />
           <span class="text-slate-800 dark-text-94 text-lg font-bold leading-tight tracking-tight hidden sm:inline">OmniNav</span>
         </RouterLink>
         <span v-if="headerCityName" class="text-sm font-medium text-slate-500 dark-text-94 shrink-0 truncate hidden md:inline">{{ headerCityName }}</span>
         <ClockWidget />
         <WeatherWidget />
       </div>
-      <div v-if="displayQuote" class="header-center flex-1 min-w-0 flex items-center justify-center max-w-xl min-w-0 px-2">
-        <button
-          type="button"
-          class="rounded-xl glass-translucent px-3 py-2 flex items-center gap-2 border border-slate-200/50 dark:border-white/10 w-full max-w-md text-left hover:border-indigo-400/40 dark:hover:border-indigo-400/40 transition-colors cursor-pointer min-w-0"
-          title="点击切换下一条"
-          @click="nextQuote"
-        >
-          <span class="material-symbols-outlined text-indigo-500 dark:text-indigo-400 text-lg shrink-0">format_quote</span>
-          <p class="text-sm text-slate-600 dark:text-slate-300 italic flex-1 min-w-0 truncate">{{ displayQuote }}</p>
-        </button>
+      <div class="header-center flex-1 min-w-0 flex items-center justify-center max-w-2xl min-w-0 px-2 hidden sm:flex">
+        <SearchBar />
       </div>
       <div class="header-right flex items-center gap-2 shrink-0">
         <button
