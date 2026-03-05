@@ -6,6 +6,7 @@ import { useSyncStore } from '@/stores/sync'
 import type { Bookmark } from '@/types'
 import type { Category } from '@/types'
 import { nanoid } from '@/utils/id'
+import { apiFetch } from '@/utils/api'
 
 const UNCATEGORIZED_NAME = '未分类'
 const UNCATEGORIZED_NAMES_LEGACY = ['未分类链接', '快捷链接']
@@ -18,7 +19,7 @@ const API = {
 
 async function get<T>(path: string): Promise<{ ok: true; data: T } | { ok: false }> {
   try {
-    const res = await fetch(path)
+    const res = await apiFetch(path)
     if (!res.ok) return { ok: false }
     const json = await res.json()
     if (!json.ok) return { ok: false }
@@ -29,7 +30,7 @@ async function get<T>(path: string): Promise<{ ok: true; data: T } | { ok: false
 }
 
 async function put<T>(path: string, data: T): Promise<void> {
-  const res = await fetch(path, {
+  const res = await apiFetch(path, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

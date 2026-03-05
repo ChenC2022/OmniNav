@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, provide, inject, onMounted, onUnmounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import ClockWidget from './ClockWidget.vue'
 import WeatherWidget from './WeatherWidget.vue'
 import { useUiStore } from '@/stores/ui'
 import { get12StaticQuotes, getRandomQuote } from '@/data/quotes'
+import { apiFetch } from '@/utils/api'
 
+const router = useRouter()
 const ui = useUiStore()
 const { theme } = storeToRefs(ui)
 const persistTheme = inject<() => Promise<void>>('persistTheme')
@@ -61,7 +63,7 @@ function ensure12Quotes(list: string[]): string[] {
 
 async function fetchQuotesFromAI() {
   try {
-    const res = await fetch('/api/ai/chat', {
+    const res = await apiFetch('/api/ai/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -76,6 +78,11 @@ async function fetchQuotesFromAI() {
   } catch {
     quoteList.value = get12StaticQuotes()
   }
+}
+
+async function logout() {
+  await apiFetch('/api/auth/logout', { method: 'POST' })
+  router.push('/login')
 }
 
 function nextQuote() {
@@ -153,6 +160,15 @@ onUnmounted(() => {
         >
           <span class="material-symbols-outlined text-[22px]">settings</span>
         </RouterLink>
+        <button
+          type="button"
+          class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+          title="退出登录"
+          aria-label="退出登录"
+          @click="logout"
+        >
+          <span class="material-symbols-outlined text-[22px]">logout</span>
+        </button>
       </div>
     </div>
   </header>

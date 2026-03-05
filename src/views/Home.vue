@@ -13,6 +13,7 @@ import SearchBar from '@/components/search/SearchBar.vue'
 import { useHealthCheck } from '@/composables/useHealthCheck'
 import { nanoid } from '@/utils/id'
 import { parseBookmarkHtml } from '@/utils/parseBookmarkHtml'
+import { apiFetch } from '@/utils/api'
 
 /** 用于存放「仅常用区」独立链接的分类名，不存在时会自动创建；在首页作为独立区域「未分类」展示 */
 const PINNED_ONLY_CATEGORY_NAME = '未分类'
@@ -477,7 +478,7 @@ async function startAutoClassifyAnalysis() {
         const chunk = list.slice(i, i + concurrency)
         const results = await Promise.allSettled(
           chunk.map(async (b) => {
-            const res = await fetch('/api/extract-meta', {
+            const res = await apiFetch('/api/extract-meta', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url: b.url }),
@@ -501,7 +502,7 @@ async function startAutoClassifyAnalysis() {
       if (ac.signal.aborted) return
     }
     autoClassifyProgressText.value = '正在请求 AI 分析…'
-    const res = await fetch('/api/ai/chat', {
+    const res = await apiFetch('/api/ai/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: [{ role: 'user', content: buildAutoClassifyPrompt(categoriesForGrid.value.map((c) => ({ name: c.name, description: c.description })), items) }] }),

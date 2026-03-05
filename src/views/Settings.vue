@@ -14,6 +14,7 @@ import { parseSunPanelJson } from '@/utils/parseSunPanel'
 import { nanoid } from '@/utils/id'
 import type { Bookmark, Category } from '@/types'
 import packageJson from '../../package.json'
+import { apiFetch } from '@/utils/api'
 
 const route = useRoute()
 const settings = useSettingsStore()
@@ -84,7 +85,7 @@ async function testAiConnection() {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS)
   try {
-    const res = await fetch('/api/ai/chat', {
+    const res = await apiFetch('/api/ai/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -139,7 +140,7 @@ async function saveAi() {
         apiKey: aiApiKey.value.trim() || undefined,
       },
     }
-    const res = await fetch('/api/data/settings', {
+    const res = await apiFetch('/api/data/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -635,9 +636,57 @@ async function confirmSunPanelImport() {
   }
 }
 
+// ─── 修改密码 ───
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordError = ref('')
+const passwordSuccess = ref('')
+const passwordLoading = ref(false)
+
+async function submitChangePassword() {
+  passwordError.value = ''
+  passwordSuccess.value = ''
+  const cur = currentPassword.value.trim()
+  const newPwd = newPassword.value.trim()
+  const confirm = confirmPassword.value.trim()
+  if (!cur) {
+    passwordError.value = '请输入当前密码'
+    return
+  }
+  if (!newPwd || newPwd.length < 4) {
+    passwordError.value = '新密码至少 4 位'
+    return
+  }
+  if (newPwd !== confirm) {
+    passwordError.value = '两次输入的新密码不一致'
+    return
+  }
+  passwordLoading.value = true
+  try {
+    const res = await apiFetch('/api/auth/set-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: cur, newPassword: newPwd }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok && data.ok) {
+      passwordSuccess.value = '密码已修改，下次登录请使用新密码。'
+      currentPassword.value = ''
+      newPassword.value = ''
+      confirmPassword.value = ''
+    } else {
+      passwordError.value = (data?.error as string) || '修改失败'
+    }
+  } finally {
+    passwordLoading.value = false
+  }
+}
+
 // ─── 侧边栏导航项 ───
 const navItems = [
   { id: 'general', icon: 'tune', label: '通用设置' },
+  { id: 'password', icon: 'lock', label: '修改密码' },
   { id: 'ai-chat', icon: 'auto_awesome', label: 'AI 助手' },
   { id: 'weather', icon: 'cloud', label: '天气位置' },
   { id: 'data', icon: 'import_export', label: '数据管理' },
@@ -775,6 +824,63 @@ const navItems = [
             </button>
           </div>
         </div>
+      </section>
+
+      <!-- ═══════ 修改密码 ═══════ -->
+      <section id="password" class="settings-section-card bg-white rounded-xl border border-slate-200 dark:border-white/20 p-4 sm:p-6 md:p-8 mb-6 sm:mb-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <span class="material-symbols-outlined">lock</span>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 dark-text-94">修改密码</h2>
+            <p class="text-sm text-slate-500 dark-text-94">更换主人密码，下次登录时使用新密码。</p>
+          </div>
+        </div>
+        <form @submit.prevent="submitChangePassword" class="space-y-4 max-w-md">
+          <div>
+            <label class="block text-sm font-semibold mb-2 text-slate-700 dark-text-94">当前密码</label>
+            <input
+              v-model="currentPassword"
+              type="password"
+              autocomplete="current-password"
+              class="settings-input dark-text-94 w-full px-4 py-3 bg-slate-50 border border-slate-200 dark:border-white/20 rounded-xl focus:ring-primary focus:border-primary text-slate-900 dark:text-white"
+              placeholder="当前密码"
+              :disabled="passwordLoading"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-2 text-slate-700 dark-text-94">新密码</label>
+            <input
+              v-model="newPassword"
+              type="password"
+              autocomplete="new-password"
+              class="settings-input dark-text-94 w-full px-4 py-3 bg-slate-50 border border-slate-200 dark:border-white/20 rounded-xl focus:ring-primary focus:border-primary text-slate-900 dark:text-white"
+              placeholder="至少 4 位"
+              :disabled="passwordLoading"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-2 text-slate-700 dark-text-94">确认新密码</label>
+            <input
+              v-model="confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              class="settings-input dark-text-94 w-full px-4 py-3 bg-slate-50 border border-slate-200 dark:border-white/20 rounded-xl focus:ring-primary focus:border-primary text-slate-900 dark:text-white"
+              placeholder="再次输入新密码"
+              :disabled="passwordLoading"
+            />
+          </div>
+          <p v-if="passwordError" class="text-sm text-red-500 dark:text-red-400">{{ passwordError }}</p>
+          <p v-if="passwordSuccess" class="text-sm text-green-600 dark:text-green-400">{{ passwordSuccess }}</p>
+          <button
+            type="submit"
+            class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="passwordLoading"
+          >
+            {{ passwordLoading ? '提交中…' : '修改密码' }}
+          </button>
+        </form>
       </section>
 
       <!-- ═══════ AI 助手 ═══════ -->

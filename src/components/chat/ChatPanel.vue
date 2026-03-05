@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
+import { apiFetch } from '@/utils/api'
 
 defineEmits<{ close: [] }>()
 
@@ -42,7 +43,7 @@ async function send() {
   input.value = ''
   loading.value = true
   try {
-    const res = await fetch('/api/ai/chat', {
+    const res = await apiFetch('/api/ai/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

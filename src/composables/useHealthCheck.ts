@@ -1,9 +1,10 @@
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { useHealthCheckStore } from '@/stores/healthCheck'
 import type { Bookmark } from '@/types'
+import { apiFetch } from '@/utils/api'
 
 export async function checkBookmarkHealth(url: string): Promise<'ok' | 'warn' | 'error'> {
-  const res = await fetch('/api/check-url', {
+  const res = await apiFetch('/api/check-url', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),

@@ -153,6 +153,13 @@ npm run deploy
 - **自定义域名**：在 Pages 项目 **Settings** → **Custom domains** 中添加域名并按提示在 DNS 中添加 CNAME。
 - **敏感配置**（如 AI API Key）：不要写进前端代码或仓库。可存于 KV（由设置页写入并仅通过 API 读取），或使用 [Workers/Pages 的 Environment variables / Secrets](https://developers.cloudflare.com/pages/functions/bindings/#environment-variables) 在 Dashboard 中配置，在 `functions` 中通过 `context.env` 使用。
 
+### 主人密码（单用户对外暴露时必配）
+
+- **作用**：未配置时所有 API 免鉴权（便于本地开发）；配置后需在登录页输入该密码才能访问书签/分类/设置等。
+- **部署**：在 Pages 项目 **Settings** → **Environment variables** 中新增变量 `OMNINAV_OWNER_PASSWORD`，值填你的密码，并勾选 **Encrypt**（作为 Secret）。或使用 `wrangler secret put OMNINAV_OWNER_PASSWORD` 为该项目设置。
+- **本地**：在项目根目录创建 `.dev.vars`（已加入 .gitignore），内容一行：`OMNINAV_OWNER_PASSWORD=你的密码`。不创建则本地请求不鉴权，可直接访问。
+- **流程**：首次打开站点若已配置密码，会先进入登录页；输入正确密码后进入首页，之后 Cookie 有效期内无需再登。Header 右侧有「退出登录」可清除会话。
+
 ---
 
 ## 七、参考

@@ -4,6 +4,7 @@ import type { Category } from '@/types'
 import { nanoid } from '@/utils/id'
 import { hashPassword } from '@/utils/crypto'
 import { useBookmarksStore } from '@/stores/bookmarks'
+import { apiFetch } from '@/utils/api'
 
 const props = defineProps<{
   modelValue: boolean
@@ -57,7 +58,7 @@ async function generateDescriptionByAI() {
     const examples = bookmarksInCategory.value.length
       ? `该分类下书签示例：${bookmarksInCategory.value.join('、')}。`
       : ''
-    const res = await fetch('/api/ai/chat', {
+    const res = await apiFetch('/api/ai/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

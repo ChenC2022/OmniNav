@@ -2,18 +2,19 @@ import { onMounted, ref } from 'vue'
 import { useUiStore } from '@/stores/ui'
 import { useSettingsStore } from '@/stores/settings'
 import type { ThemeMode } from '@/types'
+import { apiFetch } from '@/utils/api'
 
 const SETTINGS_KEY = '/api/data/settings'
 
 async function fetchSettings(): Promise<Record<string, unknown>> {
-  const res = await fetch(SETTINGS_KEY)
+  const res = await apiFetch(SETTINGS_KEY)
   if (!res.ok) return {}
   const json = await res.json().catch(() => ({}))
   return (json.data as Record<string, unknown>) ?? {}
 }
 
 async function saveSettings(data: Record<string, unknown>): Promise<void> {
-  await fetch(SETTINGS_KEY, {
+  await apiFetch(SETTINGS_KEY, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
