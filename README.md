@@ -2,6 +2,8 @@
 
 书签管理 + AI 助手一体的极简个人工作台，数据同步至 Cloudflare KV，支持自部署。
 
+**版本**：v0.2.1
+
 ---
 
 ## 功能与特点
@@ -55,6 +57,7 @@
 
 ## 文档
 
+- [更新日志](CHANGELOG.md)
 - [需求 PRD](docs/OmniNav%20PRD.md)
 - [开发计划](docs/DEVELOPMENT_PLAN.md)
 - [部署到 Cloudflare](docs/DEPLOY_TO_CLOUDFLARE.md)
