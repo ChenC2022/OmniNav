@@ -67,8 +67,8 @@
 **3.2 在 Pages 项目中绑定**
 
 - 进入 **Workers & Pages** → 你的 **Pages 项目（omninav）**
-- 打开 **Settings** → **Functions** → **KV namespace bindings**
-- 点击 **Add binding**
+- 打开 **Settings** → **Bindings**
+- 点击 **Add** → 选择 **KV namespace**
   - **Variable name**：`KV_OMNINAV`（必须与代码中 `c.env.KV_OMNINAV` 一致）
   - **KV namespace**：选择上一步创建的命名空间
 - 保存

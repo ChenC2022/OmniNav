@@ -3,5 +3,5 @@ pages_build_output_dir = "dist"
 compatibility_date = "2024-01-01"
 
 # KV 绑定：不在本文件配置，避免新用户 id 不一致导致部署失败。
-# 请在 Cloudflare Dashboard → Pages 项目 → Settings → Functions → KV namespace bindings 中添加 KV_OMNINAV。
+# 请在 Cloudflare Dashboard → Pages 项目 → Settings → Bindings 中添加 KV 绑定 KV_OMNINAV。
 # 本地开发：wrangler pages dev 会使用模拟 KV，或通过 --kv=KV_OMNINAV 指定。
