@@ -31,7 +31,12 @@ async function requireAuth(
   c: { req: Request; env: Bindings; json: (body: object, status?: number) => Response },
   next: () => Promise<Response>
 ): Promise<Response> {
-  if (!c.env.OMNINAV_OWNER_PASSWORD) return next()
+  const host = new URL(c.req.url).hostname.toLowerCase()
+  const isLocalhost = host === 'localhost' || host === '127.0.0.1'
+  if (!c.env.OMNINAV_OWNER_PASSWORD) {
+    if (isLocalhost) return next()
+    return c.json({ ok: false, error: 'Owner password not configured' }, 401)
+  }
   const path = new URL(c.req.url).pathname
   if (AUTH_PUBLIC_PATHS.includes(path)) return next()
   const sessionId = parseSessionId(c.req.header('Cookie'))
