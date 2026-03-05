@@ -119,6 +119,14 @@ npm run deploy
 
 部署后需在 Cloudflare 控制台为 Pages 项目绑定 KV 命名空间 `KV_OMNINAV`，并配置 `OMNINAV_OWNER_PASSWORD`（见方式一）。
 
+### 重置密码
+
+- **修改密码**（记得当前密码）：登录后进入 **设置** → **修改密码**，填写当前密码与新密码。
+- **忘记应用内设置的密码**：  
+  - 已登录：调用 `POST /api/admin/reset-auth-state`，请求体 `{ "password": "当前密码" }`，退出后用**部署密码**重新登录。  
+  - 未登录：在 Cloudflare Dashboard → **KV** 中删除 `auth:password_hash` 和 `auth:first_login_done`；或用 Wrangler：`npx wrangler kv key delete "auth:password_hash" --namespace-id=<KV id>` 及同法删除 `auth:first_login_done`。完成后用**部署密码**登录。
+- **忘记部署密码**：在 Cloudflare Dashboard → Pages 项目 → **Settings** → **Environment variables** 中修改 `OMNINAV_OWNER_PASSWORD` 为新值并重新部署。若 KV 中已有 `auth:password_hash`，登录仍用应用内密码；需先按上一条重置 KV 后，新部署密码才能用于登录。
+
 ### 详细说明
 
-完整步骤（含 KV 创建、自定义域名、本地开发配置等）见 [部署指南](docs/DEPLOY_TO_CLOUDFLARE.md)。
+完整步骤（含 KV 创建、自定义域名、本地开发配置、重置流程等）见 [部署指南](docs/DEPLOY_TO_CLOUDFLARE.md)。
