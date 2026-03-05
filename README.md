@@ -69,10 +69,6 @@
 ```bash
 # 安装依赖
 npm install
-
-# 首次需创建 KV 并配置 wrangler.toml
-npx wrangler kv namespace create KV_OMNINAV
-# 将输出的 id 填入 wrangler.toml 中 [[kv_namespaces]] 的 id
 ```
 
 **启动（推荐）**：
@@ -107,7 +103,7 @@ npm run dev:all
 
 1. 在 [Cloudflare Dashboard](https://dash.cloudflare.com) 创建 **Workers & Pages** → **Pages** → **Connect to Git**，连接本仓库。
 2. 构建配置：Build command 填 `npm run build`，Build output directory 填 `dist`。
-3. **绑定 KV**：Settings → Functions → KV namespace bindings → 添加 `KV_OMNINAV`，选择或新建 KV 命名空间。
+3. **绑定 KV**（建议在首次部署前完成）：先创建 KV 命名空间（Workers & Pages → KV → Create），再在 Pages 项目 **Settings** → **Functions** → **KV namespace bindings** 中添加 `KV_OMNINAV`，选择刚创建的命名空间。项目不在 `wrangler.toml` 中写死 KV id，避免新用户 id 不一致导致部署失败。
 4. 保存后触发部署，完成后访问站点。
 
 **密码方式（二选一）**：

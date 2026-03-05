@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "dev:api": "vite build && wrangler pages dev dist --port 8789",
-    "dev:all": "vite build && concurrently -n fe,api \"vite\" \"wrangler pages dev dist --port 8789\"",
+    "dev:api": "vite build && wrangler pages dev dist --port 8789 --kv=KV_OMNINAV",
+    "dev:all": "vite build && concurrently -n fe,api \"vite\" \"wrangler pages dev dist --port 8789 --kv=KV_OMNINAV\"",
     "deploy": "vite build && wrangler pages deploy dist"
   },
   "dependencies": {
