@@ -80,7 +80,7 @@
 
 - 初始化 Vite + Vue 3 + TypeScript + Tailwind CSS v4（@tailwindcss/vite，无 PostCSS 单独配置）
 - Cloudflare Pages 项目结构：根目录为前端，`functions/api/[[path]].ts` 下 Hono，basePath `/api`
-- 配置 wrangler.toml（Pages + KV_OMNINAV 绑定），本地 `wrangler pages dev dist` 可访问前端与 `/api/*`
+- 本地 `npm run dev:all` 可访问前端与 `/api/*`；生产 KV 绑定在 Dashboard → Settings → Bindings 中配置
 - Pinia Store 骨架：bookmarks、categories、settings、ui 已预留
 - 布局框架：Header / Main（router-view）/ Drawer / Footer，响应式占位
 - 主题：暗黑模式切换 + 跟随系统（class + Tailwind `dark:`），偏好通过 PUT/GET `/api/data/settings` 存 KV

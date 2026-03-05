@@ -50,19 +50,19 @@
 
 **方式一：Wrangler CLI**
 
-在项目根目录执行（namespace id 以当前 `wrangler.toml` 为准）：
+在项目根目录执行（将 `<NAMESPACE_ID>` 替换为你的 KV 命名空间 id）：
 
 ```bash
-npx wrangler kv key delete "auth:password_hash" --namespace-id=e1df337685d4460c85d31e6bd8374754
-npx wrangler kv key delete "auth:first_login_done" --namespace-id=e1df337685d4460c85d31e6bd8374754
+npx wrangler kv key delete "auth:password_hash" --namespace-id=<NAMESPACE_ID>
+npx wrangler kv key delete "auth:first_login_done" --namespace-id=<NAMESPACE_ID>
 ```
 
-若 KV 命名空间 id 不同，请从 `wrangler.toml` 的 `[[kv_namespaces]]` 中查看 `id` 并替换。
+KV 命名空间 id 可从 Dashboard（Workers & Pages → KV → 选择命名空间查看）或执行 `npx wrangler kv namespace list` 获取。
 
 **方式二：Cloudflare Dashboard**
 
 1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages** → **KV**。
-2. 找到绑定到本项目的 KV 命名空间（与 `wrangler.toml` 中 `id` 一致）。
+2. 找到绑定到本项目的 KV 命名空间。
 3. 在 key 列表中删除 `auth:password_hash` 和 `auth:first_login_done`。
 
 **方式三：已登录时用接口重置**

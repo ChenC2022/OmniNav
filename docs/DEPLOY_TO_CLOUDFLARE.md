@@ -55,7 +55,7 @@
 
 ### 3. 绑定 KV 命名空间（必须，在 Dashboard 配置）
 
-项目不在 `wrangler.toml` 中写死 KV id，避免新用户 id 不一致导致部署失败。请在 **Dashboard** 中配置：
+项目不包含 `wrangler.toml`，所有配置（含 KV 绑定）均在 **Dashboard** 中完成，以便新用户直接使用 **Settings → Bindings** 的 Add 按钮添加 KV。请按以下步骤配置：
 
 **3.1 创建 KV 命名空间**
 
@@ -128,9 +128,9 @@ npm run deploy
 该命令会依次执行：
 
 1. `vite build`：构建前端到 `dist`
-2. `wrangler pages deploy dist`：将 `dist` 与根目录下的 `functions/` 一起部署到 Cloudflare Pages
+2. `wrangler pages deploy dist --project-name=omninav`：将 `dist` 与根目录下的 `functions/` 一起部署到 Cloudflare Pages
 
-首次部署时，Wrangler 会使用 `wrangler.toml` 中的 `name`（如 `omninav`）创建或关联 Pages 项目，并带上其中的 `kv_namespaces` 绑定。
+首次部署时需指定 `--project-name=omninav`（或你的项目名）。KV 绑定需在 Dashboard 中配置（同方式 A 的步骤 3）。
 
 ### 4. 查看结果
 
@@ -167,5 +167,5 @@ npm run deploy
 
 - [Cloudflare Pages - Connect to Git](https://developers.cloudflare.com/pages/get-started/git-integration/)
 - [Pages Functions - KV bindings](https://developers.cloudflare.com/pages/functions/bindings/)
-- [Pages Wrangler configuration](https://developers.cloudflare.com/pages/functions/wrangler-configuration/)
+- [Pages Functions - Bindings](https://developers.cloudflare.com/pages/functions/bindings/)
 - 项目内：[PRE_DEPLOY_CHECKLIST.md](./PRE_DEPLOY_CHECKLIST.md)（部署前自测清单）

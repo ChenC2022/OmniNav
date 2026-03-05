@@ -44,7 +44,7 @@
 
 ## 四、环境与配置
 
-- [ ] 生产环境 KV 绑定（`KV_OMNINAV`）已在 wrangler 中配置
+- [ ] 生产环境 KV 绑定（`KV_OMNINAV`）已在 Dashboard → Settings → Bindings 中配置
 - [ ] 敏感配置（如 AI API Key）仅存 KV，不写进前端代码
 - [ ] 如需 Bing 壁纸 / 天气等，确认对应 API 与路由可用
 
