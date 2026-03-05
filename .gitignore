@@ -11,5 +11,6 @@ dist
 .agent/
 .agents
 .agents/
-.cursor/skills/
+.cursor
+.cursor/
 skills-lock.json

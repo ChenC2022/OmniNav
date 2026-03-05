@@ -11,6 +11,8 @@
 
 - 移除 `wrangler.toml`，所有配置（含 KV 绑定）在 Cloudflare Dashboard 中完成，便于新用户使用 Bindings 的 Add 按钮
 - 部署脚本添加 `--project-name=omninav` 参数
+- 本地开发默认与生产一致，采用「首次使用，请设置密码」；新增 `.dev.vars.example`
+- `.cursor` 目录加入 `.gitignore`，不再同步到 GitHub
 
 ---
 
