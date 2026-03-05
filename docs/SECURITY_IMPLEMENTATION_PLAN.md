@@ -17,13 +17,15 @@
 
 ---
 
-## 首次登录时的密码说明
+## 密码方式说明
 
-**首次登录时使用的密码 = 部署时配置的主人密码**（环境变量 / Secret：`OMNINAV_OWNER_PASSWORD`），不是空密码，也没有写死的“默认密码”。  
-- 本地开发：即 `.dev.vars` 里配置的 `OMNINAV_OWNER_PASSWORD`（如 `test123`）。  
-- 生产环境：即 Cloudflare Pages 项目里配置的 Secret `OMNINAV_OWNER_PASSWORD`。  
+**方式 A：首次访问者设密**（默认）
 
-用户完成「首次设置新密码」后，之后登录都使用**在应用里设置的那组新密码**；KV 中会存其哈希，环境变量仅作为“尚未设置过新密码时”的校验来源。
+未配置 `OMNINAV_OWNER_PASSWORD` 时，首次打开站点会显示「首次使用，请设置密码」表单，由访问者设置密码后即可登录。密码哈希存于 KV（`auth:password_hash`）。**注意**：公网部署时，第一个访问者将获得设密权。
+
+**方式 B：部署密码**
+
+配置 `OMNINAV_OWNER_PASSWORD` 时，首次登录使用该密码；可选择在应用内设置新密码（存 KV），之后登录用应用内密码。环境变量仅作为“尚未设置过新密码时”的校验来源。
 
 ---
 
@@ -34,7 +36,7 @@
 - `auth:password_hash`：用户设置后的密码哈希（删除后登录会改用 `OMNINAV_OWNER_PASSWORD`）
 - `auth:first_login_done`：是否已完成首次设置（删除后登录成功会返回 `firstLogin: true`）
 
-**重要**：重置后必须使用**部署时配置的主人密码**（即 `OMNINAV_OWNER_PASSWORD`）登录，不能使用之前在应用里设置的「新密码」（该密码的哈希已被删除）。
+**重要**：重置后，若配置了 `OMNINAV_OWNER_PASSWORD` 则用其登录；若未配置，由首次访问者重新设密。
 
 ### 本地开发（wrangler pages dev）
 

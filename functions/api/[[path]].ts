@@ -10,7 +10,7 @@ const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
 
 const SESSION_COOKIE_NAME = 'omninav_session'
 const SESSION_TTL = 604800 // 7 天
-const AUTH_PUBLIC_PATHS = ['/api/auth/login', '/api/favicon', '/api/weather', '/api/geocode', '/api/reverse-geocode']
+const AUTH_PUBLIC_PATHS = ['/api/auth/login', '/api/auth/status', '/api/auth/initial-setup', '/api/favicon', '/api/weather', '/api/geocode', '/api/reverse-geocode']
 const KV_AUTH_PASSWORD_HASH = 'auth:password_hash'
 const KV_AUTH_FIRST_LOGIN_DONE = 'auth:first_login_done'
 
@@ -31,12 +31,6 @@ async function requireAuth(
   c: { req: Request; env: Bindings; json: (body: object, status?: number) => Response },
   next: () => Promise<Response>
 ): Promise<Response> {
-  const host = new URL(c.req.url).hostname.toLowerCase()
-  const isLocalhost = host === 'localhost' || host === '127.0.0.1'
-  if (!c.env.OMNINAV_OWNER_PASSWORD) {
-    if (isLocalhost) return next()
-    return c.json({ ok: false, error: 'Owner password not configured' }, 401)
-  }
   const path = new URL(c.req.url).pathname
   if (AUTH_PUBLIC_PATHS.includes(path)) return next()
   const sessionId = parseSessionId(c.req.header('Cookie'))
@@ -65,12 +59,59 @@ function isUrlAllowed(url: URL): boolean {
 const LOGIN_RATE_LIMIT_WINDOW = 60 // 秒
 const LOGIN_RATE_LIMIT_MAX = 5
 
-// POST /api/auth/login
-app.post('/auth/login', async (c) => {
+// GET /api/auth/status（公开，用于判断是否需要首次设密）
+app.get('/auth/status', async (c) => {
+  const kv = c.env.KV_OMNINAV
+  if (!kv) return c.json({ ok: false, needInitialSetup: false }, 503)
+  const storedHash = await kv.get(KV_AUTH_PASSWORD_HASH)
   const envPassword = c.env.OMNINAV_OWNER_PASSWORD
-  if (!envPassword) return c.json({ ok: false, error: 'Owner password not configured' }, 501)
+  const needInitialSetup = !storedHash && !envPassword
+  return c.json({ ok: true, needInitialSetup })
+})
+
+// POST /api/auth/initial-setup（公开，首次访问者设密，仅当 KV 无密码时可用）
+app.post('/auth/initial-setup', async (c) => {
   const kv = c.env.KV_OMNINAV
   if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
+  const storedHash = await kv.get(KV_AUTH_PASSWORD_HASH)
+  if (storedHash) return c.json({ ok: false, error: 'Password already configured' }, 400)
+  const envPassword = c.env.OMNINAV_OWNER_PASSWORD
+  if (envPassword) return c.json({ ok: false, error: 'Use deployment password to login first' }, 400)
+  const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() ?? 'unknown'
+  const rateKey = `ratelimit:initial-setup:${ip}`
+  const current = await kv.get(rateKey)
+  const count = current ? parseInt(current, 10) : 0
+  if (count >= LOGIN_RATE_LIMIT_MAX) {
+    return c.json({ ok: false, error: 'Too many attempts' }, 429)
+  }
+  const body = await c.req.json<{ newPassword?: string }>().catch(() => ({}))
+  const newPwd = typeof body?.newPassword === 'string' ? body.newPassword : ''
+  if (!newPwd || newPwd.length < 4) {
+    await kv.put(rateKey, String(count + 1), { expirationTtl: LOGIN_RATE_LIMIT_WINDOW })
+    return c.json({ ok: false, error: '新密码至少 4 位' }, 400)
+  }
+  await kv.delete(rateKey).catch(() => {})
+  const newHash = await hashPassword(newPwd)
+  await kv.put(KV_AUTH_PASSWORD_HASH, newHash)
+  await kv.put(KV_AUTH_FIRST_LOGIN_DONE, '1')
+  const sessionId = crypto.randomUUID()
+  await kv.put(`session:${sessionId}`, '1', { expirationTtl: SESSION_TTL })
+  const hostname = new URL(c.req.url).hostname.toLowerCase()
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
+  const cookie = `${SESSION_COOKIE_NAME}=${sessionId}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL}${isLocalhost ? '' : '; Secure'}`
+  c.header('Set-Cookie', cookie)
+  return c.json({ ok: true })
+})
+
+// POST /api/auth/login
+app.post('/auth/login', async (c) => {
+  const kv = c.env.KV_OMNINAV
+  if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
+  const storedHash = await kv.get(KV_AUTH_PASSWORD_HASH)
+  const envPassword = c.env.OMNINAV_OWNER_PASSWORD
+  if (!storedHash && !envPassword) {
+    return c.json({ ok: false, needInitialSetup: true }, 400)
+  }
   const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() ?? 'unknown'
   const rateKey = `ratelimit:login:${ip}`
   const current = await kv.get(rateKey)
@@ -80,13 +121,12 @@ app.post('/auth/login', async (c) => {
   }
   const body = await c.req.json<{ password?: string }>().catch(() => ({}))
   const submitted = typeof body?.password === 'string' ? body.password : ''
-  const storedHash = await kv.get(KV_AUTH_PASSWORD_HASH)
   let valid = false
   if (storedHash) {
     const submittedHash = await hashPassword(submitted)
     valid = submittedHash === storedHash
   } else {
-    valid = submitted === envPassword
+    valid = envPassword ? submitted === envPassword : false
   }
   if (!valid) {
     await kv.put(rateKey, String(count + 1), { expirationTtl: LOGIN_RATE_LIMIT_WINDOW })

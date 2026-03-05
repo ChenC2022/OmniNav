@@ -107,9 +107,12 @@ npm run dev:all
 
 1. 在 [Cloudflare Dashboard](https://dash.cloudflare.com) 创建 **Workers & Pages** → **Pages** → **Connect to Git**，连接本仓库。
 2. 构建配置：Build command 填 `npm run build`，Build output directory 填 `dist`。
-3. **配置主人密码**：Settings → Environment variables → 新增 `OMNINAV_OWNER_PASSWORD`（勾选 Encrypt 作为 Secret），值填你的登录密码。
-4. **绑定 KV**：Settings → Functions → KV namespace bindings → 添加 `KV_OMNINAV`，选择或新建 KV 命名空间。
-5. 保存后触发部署，完成后访问站点即可使用。
+3. **绑定 KV**：Settings → Functions → KV namespace bindings → 添加 `KV_OMNINAV`，选择或新建 KV 命名空间。
+4. 保存后触发部署，完成后访问站点。
+
+**密码方式（二选一）**：
+- **首次访问者设密**（默认）：不配置 `OMNINAV_OWNER_PASSWORD`，首次打开站点时由访问者设置密码，设置后即可使用。
+- **部署密码**：Settings → Environment variables → 新增 `OMNINAV_OWNER_PASSWORD`（勾选 Encrypt），首次登录用该密码，并可选择设置新密码。
 
 ### 方式二：Wrangler CLI
 
@@ -117,15 +120,14 @@ npm run dev:all
 npm run deploy
 ```
 
-部署后需在 Cloudflare 控制台为 Pages 项目绑定 KV 命名空间 `KV_OMNINAV`，并配置 `OMNINAV_OWNER_PASSWORD`（见方式一）。
+部署后需在 Cloudflare 控制台为 Pages 项目绑定 KV 命名空间 `KV_OMNINAV`。
 
 ### 重置密码
 
 - **修改密码**（记得当前密码）：登录后进入 **设置** → **修改密码**，填写当前密码与新密码。
-- **忘记应用内设置的密码**：  
-  - 已登录：调用 `POST /api/admin/reset-auth-state`，请求体 `{ "password": "当前密码" }`，退出后用**部署密码**重新登录。  
-  - 未登录：在 Cloudflare Dashboard → **KV** 中删除 `auth:password_hash` 和 `auth:first_login_done`；或用 Wrangler：`npx wrangler kv key delete "auth:password_hash" --namespace-id=<KV id>` 及同法删除 `auth:first_login_done`。完成后用**部署密码**登录。
-- **忘记部署密码**：在 Cloudflare Dashboard → Pages 项目 → **Settings** → **Environment variables** 中修改 `OMNINAV_OWNER_PASSWORD` 为新值并重新部署。若 KV 中已有 `auth:password_hash`，登录仍用应用内密码；需先按上一条重置 KV 后，新部署密码才能用于登录。
+- **忘记密码**：  
+  - 已登录：调用 `POST /api/admin/reset-auth-state`，请求体 `{ "password": "当前密码" }`，退出后重新登录（若配置了部署密码则用部署密码；否则需删除 KV 后由首次访问者重新设密）。  
+  - 未登录：在 Cloudflare Dashboard → **KV** 中删除 `auth:password_hash` 和 `auth:first_login_done`；或用 Wrangler 删除。若配置了部署密码，删除后用部署密码登录；若未配置，删除后由首次访问者重新设密。
 
 ### 详细说明
 
