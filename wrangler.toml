@@ -5,4 +5,4 @@ compatibility_date = "2024-01-01"
 # KV：书签、分类、置顶、设置等（需先运行 wrangler kv namespace create KV_OMNINAV 获取 id）
 [[kv_namespaces]]
 binding = "KV_OMNINAV"
-id = "e1df337685d4460c85d31e6bd8374754"
+id = "eca852ecdffb4ab5af9cefeaa414a0ed"
