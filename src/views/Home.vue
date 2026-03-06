@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed, inject, provide, ref, watch, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { onClickOutside } from '@vueuse/core'
 import draggable from 'vuedraggable'
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { useCategoriesStore } from '@/stores/categories'
 import { usePinnedStore } from '@/stores/pinned'
+import { useUiStore } from '@/stores/ui'
 import type { Bookmark, Category } from '@/types'
 import BookmarkIcon from '@/components/bookmark/BookmarkIcon.vue'
 import CategoryCard from '@/components/category/CategoryCard.vue'
 import CategoryForm from '@/components/category/CategoryForm.vue'
 import SearchBar from '@/components/search/SearchBar.vue'
+import QuickPasteBar from '@/components/quick-add/QuickPasteBar.vue'
 import { useHealthCheck } from '@/composables/useHealthCheck'
 import { nanoid } from '@/utils/id'
 import { parseBookmarkHtml } from '@/utils/parseBookmarkHtml'
@@ -30,6 +33,8 @@ const savePinned = inject<() => Promise<void>>('savePinned')
 import { useQuotes } from '@/composables/useQuotes'
 const { displayQuote, nextQuote } = useQuotes()
 const pinnedStore = usePinnedStore()
+const ui = useUiStore() // Added
+const { theme, isEditLayout } = storeToRefs(ui) // Modified
 const { checkOne } = useHealthCheck()
 onMounted(() => {
   // 迁移：将旧名称「未分类链接」「快捷链接」改为「未分类」，刷新后即生效
@@ -72,7 +77,7 @@ const pinnedList = ref<Bookmark[]>([])
 watch(pinnedBookmarks, (v) => { pinnedList.value = [...v] }, { immediate: true })
 
 /** 编辑布局：开启后常用区卡片才可拖拽排序，且支持从分类拖入常用 */
-const isEditLayout = ref(false)
+// const isEditLayout = ref(false) // Removed, now from useUiStore
 
 /** 分类区块标题栏：设置菜单（检查链接 / 新建分类） */
 const categorySectionSettingsOpen = ref(false)
@@ -740,9 +745,295 @@ function onPinnedMenuKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onPinnedMenuKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onPinnedMenuKeydown))
 
-// 自动归类 / 清理失效 进行中：离开页面前提示，防止误刷新
+// ---------- AI 快速添加 ----------
+const quickAddLoading = ref(false)
+const quickAddProgressText = ref('')
+const quickAddAbortRef = ref<AbortController | null>(null)
+const quickAddResultOpen = ref(false)
+const quickAddResultMessage = ref('')
+const quickAddSuggestions = ref<Array<{
+  url: string
+  title: string
+  description: string
+  suggestedCategory: string
+  isNew: boolean
+  suggestedCategoryDescription?: string
+}>>([])
+const quickAddSelections = ref<Record<string, string>>({})
+
+const quickAddDropdownOptions = computed(() => {
+  const keep = { value: '__skip__', label: '跳过，不添加' }
+  const uncatOpt = uncategorizedCategory.value
+    ? { value: uncategorizedCategory.value.id, label: '未分类' }
+    : null
+  const existing = categoriesForGrid.value.map((c) => ({ value: c.id, label: c.name }))
+  const newNames = new Set<string>()
+  for (const s of quickAddSuggestions.value) {
+    if (s.isNew && s.suggestedCategory) newNames.add(s.suggestedCategory)
+  }
+  const newOpts = [...newNames].map((n) => ({ value: `new:${n}`, label: `✨ [新] ${n}` }))
+  return [keep, ...(uncatOpt ? [uncatOpt] : []), ...existing, ...newOpts]
+})
+
+function setQuickAddSelection(url: string, value: string) {
+  quickAddSelections.value = { ...quickAddSelections.value, [url]: value }
+}
+
+function cancelQuickAdd() {
+  quickAddAbortRef.value?.abort()
+  quickAddLoading.value = false
+  quickAddProgressText.value = ''
+  quickAddAbortRef.value = null
+}
+
+function closeQuickAddResult() {
+  quickAddResultOpen.value = false
+}
+
+async function handleQuickAddSubmit(payload: { urls: string[]; deepAnalysis: boolean }) {
+  const { urls, deepAnalysis } = payload
+  if (urls.length === 0) return
+
+  // Check for duplicates
+  const existingUrls = new Set(bookmarksStore.items.map((b) => b.url))
+  const newUrls = urls.filter((u) => !existingUrls.has(u))
+  if (newUrls.length === 0) {
+    quickAddResultMessage.value = '所有链接已存在于书签中，无需重复添加'
+    return
+  }
+
+  const ac = new AbortController()
+  quickAddAbortRef.value = ac
+  quickAddLoading.value = true
+  quickAddProgressText.value = '正在准备…'
+  quickAddResultMessage.value = ''
+
+  try {
+    // Step 1: Extract metadata for each URL
+    let items: Array<{ url: string; title: string; summary?: string }> = newUrls.map((u) => ({
+      url: u,
+      title: titleFromUrl(u),
+    }))
+
+    if (deepAnalysis) {
+      const total = newUrls.length
+      const concurrency = 3
+      for (let i = 0; i < newUrls.length; i += concurrency) {
+        if (ac.signal.aborted) break
+        const done = Math.min(i + concurrency, total)
+        quickAddProgressText.value = `正在抓取网页信息 (${done}/${total})…`
+        const chunk = newUrls.slice(i, i + concurrency)
+        const results = await Promise.allSettled(
+          chunk.map(async (url) => {
+            const res = await apiFetch('/api/extract-meta', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url }),
+              signal: ac.signal,
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!data.ok || !res.ok) return { url, title: titleFromUrl(url) }
+            const parts = [data.title, data.description, data.snippet].filter(Boolean)
+            return {
+              url,
+              title: data.title || titleFromUrl(url),
+              summary: parts.join(' ').slice(0, 600),
+            }
+          })
+        )
+        for (let j = 0; j < results.length; j++) {
+          const r = results[j]
+          const url = chunk[j]
+          if (r?.status === 'fulfilled' && r.value && url) {
+            const idx = items.findIndex((x) => x.url === url)
+            if (idx >= 0) items[idx] = r.value
+          }
+        }
+      }
+      if (ac.signal.aborted) return
+    }
+
+    // Step 2: Ask AI to classify
+    quickAddProgressText.value = '正在请求 AI 分析归类…'
+    const existingCategories = categoriesForGrid.value.map((c) => ({ name: c.name, description: c.description }))
+    const prompt = buildQuickAddPrompt(existingCategories, items)
+    const res = await apiFetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+      signal: ac.signal,
+    })
+    const data = await res.json().catch(() => ({}))
+    if (ac.signal.aborted) return
+    if (!res.ok) {
+      const code = (data as { code?: string })?.code
+      quickAddResultMessage.value =
+        code === 'AI_NOT_CONFIGURED'
+          ? 'AI 未配置，请到设置中填写 Base URL、Model 与 API Key'
+          : (data as { error?: string })?.error ?? 'AI 请求失败'
+      return
+    }
+
+    const rawText = (data as { message?: string })?.message ?? ''
+    const parsed = parseQuickAddResponse(rawText, newUrls)
+    if (!parsed.length) {
+      quickAddResultMessage.value = '未能解析 AI 返回的归类建议，请重试'
+      return
+    }
+
+    quickAddSuggestions.value = parsed
+    const selections: Record<string, string> = {}
+    for (const s of parsed) {
+      const cat = categoriesForGrid.value.find((c) => c.name === s.suggestedCategory)
+      if (cat) selections[s.url] = cat.id
+      else if (s.suggestedCategory) selections[s.url] = `new:${s.suggestedCategory}`
+      else selections[s.url] = uncategorizedCategory.value?.id ?? '__skip__'
+    }
+    quickAddSelections.value = selections
+    quickAddResultOpen.value = true
+  } catch (e) {
+    if ((e as { name?: string })?.name === 'AbortError') return
+    quickAddResultMessage.value = e instanceof Error ? e.message : '分析失败'
+  } finally {
+    quickAddLoading.value = false
+    quickAddProgressText.value = ''
+    quickAddAbortRef.value = null
+  }
+}
+
+function buildQuickAddPrompt(
+  categories: Array<{ name: string; description?: string }>,
+  items: Array<{ url: string; title: string; summary?: string }>
+): string {
+  const hasExistingCategories = categories.length > 0
+  const catList = hasExistingCategories
+    ? `现有分类（名称与说明）：\n${categories.map((c) => (c.description ? `- ${c.name}：${c.description}` : `- ${c.name}`)).join('\n')}`
+    : '当前尚无任何分类，请为每条链接建议一个合适的新分类名（2～8 个字符），所有条目的 isNew 均应为 true。'
+  const hasSummary = items.some((x) => x.summary)
+  const rows = items
+    .map((x) => `- URL: ${x.url} 标题: ${x.title}${x.summary ? ` 页面摘要: ${x.summary}` : ''}`)
+    .join('\n')
+  return `${catList}
+
+我要添加以下网址到书签收藏中，请为每条链接进行归类并生成信息。规则：
+1. ${hasExistingCategories ? '优先从现有分类中选择最合适的；若无合适分类则建议一个简短新分类名（2～8 字符）。' : '为每条链接建议一个简短新分类名（2～8 字符），isNew 均为 true。'}
+2. 为每条链接生成一个准确的标题（产品名/站点名，2～15 字）和一句简短描述（介绍用途或内容）。
+3. 仅输出一个 JSON 数组，不要其他说明。格式：
+[{"url":"链接URL","title":"生成的标题","description":"简短描述","category":"分类名","isNew":false,"categoryDescription":"仅 isNew 为 true 时必填，该新分类的一句简短说明"}]
+   - 若选现有分类则 isNew 为 false，不需 categoryDescription。
+   - 若建议新分类则 isNew 为 true，必须填写 categoryDescription。
+
+链接列表：
+${rows}`
+}
+
+function parseQuickAddResponse(
+  text: string,
+  validUrls: string[]
+): Array<{
+  url: string
+  title: string
+  description: string
+  suggestedCategory: string
+  isNew: boolean
+  suggestedCategoryDescription?: string
+}> {
+  let jsonStr = text.trim()
+  const codeMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (codeMatch) jsonStr = codeMatch[1].trim()
+  try {
+    const arr = JSON.parse(jsonStr) as unknown[]
+    if (!Array.isArray(arr)) return []
+    const validSet = new Set(validUrls)
+    return arr
+      .filter(
+        (x): x is { url: string; title: string; description: string; category: string; isNew?: boolean; categoryDescription?: string } =>
+          typeof x === 'object' &&
+          x !== null &&
+          typeof (x as { url?: string }).url === 'string' &&
+          typeof (x as { category?: string }).category === 'string'
+      )
+      .filter((x) => validSet.has(x.url))
+      .map((x) => ({
+        url: x.url,
+        title: typeof x.title === 'string' ? x.title.trim() : titleFromUrl(x.url),
+        description: typeof x.description === 'string' ? x.description.trim() : '',
+        suggestedCategory: String(x.category).trim(),
+        isNew: x.isNew === true,
+        suggestedCategoryDescription: typeof x.categoryDescription === 'string' ? x.categoryDescription.trim() : undefined,
+      }))
+  } catch {
+    return []
+  }
+}
+
+async function confirmQuickAddApply() {
+  const nameToId: Record<string, string> = {}
+  for (const c of categoriesStore.items) nameToId[c.name] = c.id
+
+  // Collect new categories to create
+  const newNamesToCreate = new Set<string>()
+  for (const [, val] of Object.entries(quickAddSelections.value)) {
+    if (val.startsWith('new:')) {
+      const name = val.slice(4).trim()
+      if (name && !nameToId[name]) newNamesToCreate.add(name)
+    }
+  }
+
+  // Get category descriptions from suggestions
+  const newCategoryDescriptions: Record<string, string> = {}
+  for (const s of quickAddSuggestions.value) {
+    if (s.isNew && s.suggestedCategory && s.suggestedCategoryDescription && !newCategoryDescriptions[s.suggestedCategory])
+      newCategoryDescriptions[s.suggestedCategory] = s.suggestedCategoryDescription
+  }
+
+  // Create new categories
+  let maxOrder = 0
+  for (const c of categoriesStore.items) {
+    if (c.name !== PINNED_ONLY_CATEGORY_NAME && !PINNED_ONLY_CATEGORY_NAMES_LEGACY.includes(c.name))
+      maxOrder = Math.max(maxOrder, c.order)
+  }
+  for (const name of newNamesToCreate) {
+    const id = nanoid()
+    categoriesStore.addCategory({
+      id,
+      name,
+      description: newCategoryDescriptions[name],
+      order: ++maxOrder,
+    })
+    nameToId[name] = id
+  }
+  if (newNamesToCreate.size) await saveCategories?.()
+
+  // Create bookmarks
+  let addedCount = 0
+  const baseOrder = bookmarksStore.items.length
+  for (const s of quickAddSuggestions.value) {
+    const val = quickAddSelections.value[s.url]
+    if (!val || val === '__skip__') continue
+    const categoryId = val.startsWith('new:') ? nameToId[val.slice(4).trim()] : val
+    if (!categoryId) continue
+    const bookmark: Bookmark = {
+      id: nanoid(),
+      title: s.title || titleFromUrl(s.url),
+      url: s.url,
+      description: s.description || undefined,
+      categoryId,
+      order: baseOrder + addedCount,
+    }
+    bookmarksStore.addBookmark(bookmark)
+    addedCount++
+  }
+  if (addedCount > 0) await saveBookmarks?.()
+
+  const newCatCount = newNamesToCreate.size
+  quickAddResultMessage.value = `已添加 ${addedCount} 个书签${newCatCount > 0 ? `，创建了 ${newCatCount} 个新分类` : ''}`
+  closeQuickAddResult()
+}
+
+// 自动归类 / 清理失效 / 快速添加 进行中：离开页面前提示，防止误刷新
 function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (autoClassifyLoading.value || cleanInvalidLoading.value) {
+  if (autoClassifyLoading.value || cleanInvalidLoading.value || quickAddLoading.value) {
     e.preventDefault()
     e.returnValue = ''
   }
@@ -775,36 +1066,16 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
             title="点击切换下一条"
             @click="nextQuote()"
           >
-            <span class="text-xs shrink-0">✨</span>
-            <span class="text-xs text-slate-400 dark:text-slate-500 italic truncate min-w-0">{{ displayQuote }}</span>
-            <span class="text-xs shrink-0">✨</span>
+            <span class="text-base shrink-0">✨</span>
+            <span class="text-base text-slate-400 dark:text-slate-500 italic truncate min-w-0">{{ displayQuote }}</span>
+            <span class="text-base shrink-0">✨</span>
           </button>
         </div>
-        <label
-          class="inline-flex items-center gap-2 cursor-pointer select-none"
-          :title="isEditLayout ? '已开启：拖拽卡片可调整顺序' : '点击开启后，拖拽可调整书签顺序'"
-        >
-          <span class="text-sm font-medium text-slate-600 dark:text-slate-400">拖动书签</span>
-          <span
-            class="toggle-track relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ease-in-out"
-            :class="isEditLayout ? 'is-on' : ''"
-          >
-            <input
-              v-model="isEditLayout"
-              type="checkbox"
-              class="sr-only"
-            >
-            <span
-              class="toggle-thumb pointer-events-none inline-block size-3.5 rounded-full transition-transform duration-200 ease-in-out mt-[3px] ml-[3px]"
-              :class="isEditLayout ? 'translate-x-[14px]' : 'translate-x-0'"
-            />
-          </span>
-        </label>
       </div>
       <!-- 常用区块容器：与未分类等区域块形态一致，块内保留大图标网格；最多展示约 16 个可见，超出滚动；深色模式使用专用配色 -->
       <div class="pinned-section rounded-2xl border border-slate-200/60 dark:border-white/10 bg-white/50 p-4 md:p-5">
         <div class="max-h-[14rem] overflow-y-auto overflow-x-hidden min-h-0 custom-scrollbar">
-          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 md:gap-4">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(min(100%,100px),1fr))] gap-3 md:gap-4">
           <draggable
             v-model="pinnedList"
             item-key="id"
@@ -818,7 +1089,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           <template #item="{ element }">
             <div
               v-if="element"
-              class="pinned-card glass-translucent rounded-2xl p-4 card-hover cursor-context-menu flex items-center gap-1.5 min-w-0 text-slate-600 dark:text-slate-300"
+              class="pinned-card glass-translucent rounded-2xl p-2.5 sm:p-4 card-hover cursor-context-menu flex items-center gap-1.5 min-w-0 text-slate-600 dark:text-slate-300"
               @contextmenu.prevent="openPinnedContextMenu($event, element)"
             >
               <span
@@ -841,29 +1112,38 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
       </p>
     </section>
 
+    <!-- AI 快速添加栏 -->
+    <section class="quick-add-section mb-8 sm:mb-10">
+      <QuickPasteBar @submit="handleQuickAddSubmit" />
+      <p v-if="quickAddResultMessage" class="mt-3 text-sm" :class="quickAddResultMessage.startsWith('已添加') ? 'text-green-600 dark:text-green-400' : 'text-slate-600 dark:text-slate-400'">
+        {{ quickAddResultMessage }}
+      </p>
+    </section>
+
     <section class="categories">
-      <div class="relative z-10 flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-5">
-        <h2 class="section-title text-lg font-bold flex items-center gap-2.5 text-slate-800 dark-text-94">
-          <span class="material-symbols-outlined text-indigo-500 dark:text-indigo-400 text-[22px]">category</span>
-          分类
-        </h2>
-        <div class="relative flex items-center" ref="categorySectionSettingsRef">
-          <button
-            ref="categorySectionSettingsTriggerRef"
-            type="button"
-            class="p-2.5 rounded-xl glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all duration-200 flex items-center justify-center cursor-pointer"
-            title="设置"
-            aria-haspopup="menu"
-            :aria-expanded="categorySectionSettingsOpen"
-            @click="categorySectionSettingsOpen = !categorySectionSettingsOpen"
-          >
-            <span class="material-symbols-outlined text-xl">settings</span>
-          </button>
-          <Transition name="menu-pop">
-            <div
-              v-if="categorySectionSettingsOpen"
-              class="absolute right-0 top-full mt-1 flex flex-col gap-0.5 p-1 rounded-xl shadow-xl border border-slate-200 dark:border-white/20 bg-white dark:bg-white/10 dark:backdrop-blur-xl z-[110] min-w-[2.5rem] pointer-events-auto"
+      <div class="relative z-10 flex flex-wrap items-center justify-start gap-4 mb-4 sm:mb-5">
+        <div class="flex items-center gap-3">
+          <h2 class="section-title text-lg font-bold flex items-center gap-2.5 text-slate-800 dark-text-94">
+            <span class="material-symbols-outlined text-indigo-500 dark:text-indigo-400 text-[22px]">category</span>
+            分类
+          </h2>
+          <div class="relative flex items-center" ref="categorySectionSettingsRef">
+            <button
+              ref="categorySectionSettingsTriggerRef"
+              type="button"
+              class="size-8 rounded-lg glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all duration-200 flex items-center justify-center cursor-pointer"
+              title="设置"
+              aria-haspopup="menu"
+              :aria-expanded="categorySectionSettingsOpen"
+              @click="categorySectionSettingsOpen = !categorySectionSettingsOpen"
             >
+              <span class="material-symbols-outlined text-lg">settings</span>
+            </button>
+            <Transition name="menu-pop">
+              <div
+                v-if="categorySectionSettingsOpen"
+                class="absolute left-0 top-full mt-1 flex flex-row gap-0.5 p-1 rounded-xl shadow-xl border border-slate-200 dark:border-white/20 bg-white dark:bg-slate-800/95 dark:backdrop-blur-xl z-[110] min-w-[2.5rem] pointer-events-auto"
+              >
               <button
                 type="button"
                 class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
@@ -885,6 +1165,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           </Transition>
         </div>
       </div>
+    </div>
       <draggable
         v-model="categoriesList"
         item-key="id"
@@ -914,21 +1195,21 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
 
     <!-- 未分类：独立区域，在分类下方；标题左侧，右侧为添加 / 导入 / 清理失效 / 自动归类 -->
     <section v-if="uncategorizedCategory" class="uncategorized-section mt-10 sm:mt-12">
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-5">
+      <div class="flex flex-wrap items-center justify-start gap-4 mb-4 sm:mb-5">
         <h2 class="section-title text-lg font-bold flex items-center gap-2.5 text-slate-800 dark-text-94">
           <span class="material-symbols-outlined text-indigo-500 dark:text-indigo-400 text-[22px]">link</span>
           未分类
         </h2>
-        <div class="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer bg-indigo-500 dark:bg-indigo-400 text-white hover:bg-indigo-600 dark:hover:bg-indigo-300 active:scale-[0.98] disabled:opacity-50"
-            title="添加"
-            aria-label="添加"
-            @click="uncategorizedCardRef?.openAdd?.()"
-          >
-            <span class="material-symbols-outlined text-[22px]">add</span>
-          </button>
+        <div class="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              class="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center transition-colors cursor-pointer bg-indigo-500 dark:bg-indigo-400 text-white hover:bg-indigo-600 dark:hover:bg-indigo-300 active:scale-[0.98] disabled:opacity-50"
+              title="添加"
+              aria-label="添加"
+              @click="uncategorizedCardRef?.openAdd?.()"
+            >
+              <span class="material-symbols-outlined text-lg">add</span>
+            </button>
           <input
             ref="importFileInputRef"
             type="file"
@@ -937,36 +1218,36 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
             aria-label="选择书签 HTML 文件"
             @change="onImportFileChange"
           >
-          <button
-            type="button"
-            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 disabled:opacity-50"
-            :disabled="importLoading"
-            title="导入 Chrome / Edge / Firefox 导出的书签 HTML 文件"
-            aria-label="导入"
-            @click="onUncategorizedImport"
-          >
-            <span class="material-symbols-outlined text-[22px]">{{ importLoading ? 'progress_activity' : 'upload_file' }}</span>
-          </button>
-          <button
-            type="button"
-            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 disabled:opacity-50"
-            :disabled="cleanInvalidLoading || uncategorizedBookmarks.length === 0"
-            title="检测并清理失效链接"
-            aria-label="检测并清理失效链接"
-            @click="uncategorizedCategory && runCheckAndCleanup({ type: 'category', categoryId: uncategorizedCategory.id })"
-          >
-            <span class="material-symbols-outlined text-[22px]">{{ cleanInvalidLoading ? 'progress_activity' : 'bolt' }}</span>
-          </button>
-          <button
-            type="button"
-            class="h-9 w-9 md:h-10 md:w-10 shrink-0 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 disabled:opacity-50"
-            :disabled="autoClassifyLoading"
-            title="使用 AI 将未分类书签归入已有分类或建议新分类"
-            aria-label="自动归类"
-            @click="openAutoClassifyPreDialog"
-          >
-            <span class="material-symbols-outlined text-[22px]">{{ autoClassifyLoading ? 'progress_activity' : 'auto_awesome' }}</span>
-          </button>
+            <button
+              type="button"
+              class="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 disabled:opacity-50"
+              :disabled="importLoading"
+              title="导入 Chrome / Edge / Firefox 导出的书签 HTML 文件"
+              aria-label="导入"
+              @click="onUncategorizedImport"
+            >
+              <span class="material-symbols-outlined text-lg">{{ importLoading ? 'progress_activity' : 'upload_file' }}</span>
+            </button>
+            <button
+              type="button"
+              class="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 disabled:opacity-50"
+              :disabled="cleanInvalidLoading || uncategorizedBookmarks.length === 0"
+              title="检测并清理失效链接"
+              aria-label="检测并清理失效链接"
+              @click="uncategorizedCategory && runCheckAndCleanup({ type: 'category', categoryId: uncategorizedCategory.id })"
+            >
+              <span class="material-symbols-outlined text-lg">{{ cleanInvalidLoading ? 'progress_activity' : 'bolt' }}</span>
+            </button>
+            <button
+              type="button"
+              class="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 disabled:opacity-50"
+              :disabled="autoClassifyLoading"
+              title="使用 AI 将未分类书签归入已有分类或建议新分类"
+              aria-label="自动归类"
+              @click="openAutoClassifyPreDialog"
+            >
+              <span class="material-symbols-outlined text-lg">{{ autoClassifyLoading ? 'progress_activity' : 'auto_awesome' }}</span>
+            </button>
         </div>
       </div>
       <p v-if="importResult" class="mb-3 text-sm text-slate-600 dark:text-slate-400" :class="importResult.startsWith('已导入') ? 'text-green-600 dark:text-green-400' : ''">
@@ -986,6 +1267,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         :add-in-header="true"
         :no-rename-delete="true"
         :no-add-in-grid="true"
+        :min-view-level="1"
       />
     </section>
 
@@ -1105,7 +1387,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
                 </div>
                 <select
                   :value="autoClassifySelections[s.bookmark.id]"
-                  class="shrink-0 w-40 max-w-[50%] px-3 py-2 rounded-xl border border-slate-200 dark:border-white/20 bg-white dark:bg-slate-800/50 text-slate-800 dark-text-94 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none"
+                  class="shrink-0 w-40 max-w-[50%] px-3 py-2 rounded-xl border border-slate-200 dark:border-white/20 bg-white dark:bg-slate-800/50 text-slate-800 dark-text-94 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none ai-classify-select"
                   @change="(e) => setAutoClassifySelection(s.bookmark.id, (e.target as HTMLSelectElement).value)"
                 >
                   <option v-for="opt in autoClassifyDropdownOptions" :key="opt.value" :value="opt.value">
@@ -1331,6 +1613,110 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         >
           从常用移除
         </button>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- AI 快速添加：分析中进度弹窗 -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="quickAddLoading"
+          class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 dark:bg-black/50 backdrop-blur-sm modal-fade-overlay"
+        >
+          <div class="modal-fade-panel w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200 dark:border-white/20 flex flex-col bg-white/95 dark:bg-white/5 backdrop-blur-xl overflow-hidden">
+            <div class="px-4 py-4 flex items-center gap-3 shrink-0">
+              <span class="material-symbols-outlined text-indigo-500 text-2xl animate-pulse">add_link</span>
+              <div>
+                <p class="font-semibold text-slate-800 dark-text-94">AI 快速添加</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ quickAddProgressText }}</p>
+              </div>
+            </div>
+            <p class="px-4 pb-3 text-xs text-slate-500 dark:text-slate-400">
+              正在分析链接并生成归类建议，完成后可确认入库。
+            </p>
+            <div class="px-4 py-3 border-t border-slate-200 dark:border-white/10 flex justify-end bg-slate-50/50 dark:bg-white/5">
+              <button
+                type="button"
+                class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors"
+                @click="cancelQuickAdd"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- AI 快速添加：结果确认弹窗 -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="quickAddResultOpen"
+          class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 dark:bg-black/50 backdrop-blur-sm modal-fade-overlay"
+          @click.self="closeQuickAddResult"
+        >
+          <div class="modal-fade-panel w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-200 dark:border-white/20 flex flex-col bg-white/95 dark:bg-white/5 backdrop-blur-xl">
+            <div class="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0">
+              <span class="font-semibold text-slate-800 dark-text-94 flex items-center gap-2">
+                <span class="material-symbols-outlined text-indigo-500 text-[20px]">add_link</span>
+                确认添加书签
+              </span>
+              <button type="button" class="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 dark-text-94 transition-colors" aria-label="关闭" @click="closeQuickAddResult">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div class="p-3 bg-indigo-50/50 dark:bg-indigo-500/10 border-b border-indigo-100 dark:border-indigo-500/20 shrink-0">
+              <p class="text-sm text-indigo-800 dark:text-indigo-200">
+                AI 已分析 <strong>{{ quickAddSuggestions.length }}</strong> 个链接，请确认标题、描述与目标分类，然后点击「确认添加」入库。
+              </p>
+            </div>
+            <div class="overflow-y-auto min-h-0 flex-1 py-2">
+              <div
+                v-for="s in quickAddSuggestions"
+                :key="s.url"
+                class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-4 py-3 hover:bg-slate-200/50 dark:hover:bg-white/10 border-b border-slate-100 dark:border-white/5 last:border-b-0"
+              >
+                <div class="min-w-0 flex-1">
+                  <p class="font-medium text-sm text-slate-800 dark-text-94 truncate">
+                    {{ s.title }}
+                  </p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ s.url }}</p>
+                  <p v-if="s.description" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                    <span class="text-indigo-600 dark:text-indigo-400">描述：</span>{{ s.description }}
+                  </p>
+                </div>
+                <select
+                  :value="quickAddSelections[s.url]"
+                  class="shrink-0 w-full sm:w-40 sm:max-w-[50%] px-3 py-2 rounded-xl border border-slate-200 dark:border-white/20 bg-white dark:bg-slate-800/50 text-slate-800 dark-text-94 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none ai-classify-select"
+                  @change="(e) => setQuickAddSelection(s.url, (e.target as HTMLSelectElement).value)"
+                >
+                  <option v-for="opt in quickAddDropdownOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="px-4 py-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-white/5">
+              <span class="text-xs text-slate-400 dark:text-slate-500">
+                {{ Object.values(quickAddSelections).filter((v) => v !== '__skip__').length }} / {{ quickAddSuggestions.length }} 个将被添加
+              </span>
+              <div class="flex gap-2">
+                <button type="button" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors" @click="closeQuickAddResult">
+                  取消
+                </button>
+                <button
+                  type="button"
+                  class="px-4 py-2 rounded-xl text-sm font-medium bg-indigo-500 dark:bg-indigo-400 text-white hover:bg-indigo-600 dark:hover:bg-indigo-300 transition-colors disabled:opacity-50"
+                  :disabled="Object.values(quickAddSelections).every((v) => v === '__skip__')"
+                  @click="confirmQuickAddApply"
+                >
+                  确认添加
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </Transition>
     </Teleport>

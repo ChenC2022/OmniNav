@@ -24,8 +24,10 @@ const props = withDefaults(
     noRenameDelete?: boolean
     /** 为 true 时不显示卡片内「添加」格子（仅用头部添加按钮时使用，如未分类） */
     noAddInGrid?: boolean
+    /** 最小折叠级别（默认 0），未分类应设为 1 以跳过「仅标题」态 */
+    minViewLevel?: number
   }>(),
-  { editLayout: true, hideTitle: false, addInHeader: false, noRenameDelete: false, noAddInGrid: false }
+  { editLayout: true, hideTitle: false, addInHeader: false, noRenameDelete: false, noAddInGrid: false, minViewLevel: 0 }
 )
 
 const emit = defineEmits<{
@@ -33,9 +35,11 @@ const emit = defineEmits<{
   (e: 'deleteCategory'): void
 }>()
 
+import { useCategoriesStore } from '@/stores/categories'
 const bookmarksStore = useBookmarksStore()
+const categoriesStore = useCategoriesStore()
 const saveBookmarks = inject<() => Promise<void>>('saveBookmarks')
-const savePinned = inject<() => Promise<void>>('savePinned')
+const saveCategories = inject<() => Promise<void>>('saveCategories')
 const runCheckAndCleanupForCategory = inject<(categoryId: string) => void>('runCheckAndCleanupForCategory')
 const uncategorizedCategoryId = inject<import('vue').ComputedRef<string | null> | null>('uncategorizedCategoryId')
 const pinnedStore = usePinnedStore()
@@ -102,6 +106,35 @@ function onSaveBookmark(b: Bookmark) {
 function onDeleteBookmark(id: string) {
   bookmarksStore.removeBookmark(id)
   saveBookmarks?.()
+}
+
+const viewLevel = computed(() => {
+  const raw = props.category.viewLevel ?? 1
+  return Math.max(raw, props.minViewLevel)
+})
+
+const viewLevelIcon = computed(() => {
+  const level = viewLevel.value
+  if (level === 0) return 'expand_more'
+  if (level === 1) return 'expand_content'
+  if (level === 2) return 'unfold_more'
+  return 'expand_less'
+})
+
+const viewLevelTitle = computed(() => {
+  const level = viewLevel.value
+  if (level === 0) return '第一层级：仅标题'
+  if (level === 1) return '第二层级：显示 3 行'
+  if (level === 2) return '第三层级：显示 10 行'
+  return '第四层级：全部展开'
+})
+
+function toggleViewLevel() {
+  const current = viewLevel.value
+  let next = (current + 1) % 4
+  if (next < props.minViewLevel) next = props.minViewLevel
+  categoriesStore.updateCategory(props.category.id, { viewLevel: next })
+  saveCategories?.()
 }
 
 function onDragEnd() {
@@ -280,6 +313,13 @@ defineExpose({ openAdd })
       </div>
     </template>
     <template v-else>
+    <!-- 非悬停时右上角：书签数量角标（悬停时隐藏，让位给操作按钮） -->
+    <span
+      v-if="list.length > 0"
+      class="absolute top-3 right-3.5 z-[5] text-[11px] tabular-nums font-medium text-slate-400/70 dark:text-slate-500/70 opacity-100 group-hover:opacity-0 transition-opacity duration-200 pointer-events-none select-none"
+    >
+      {{ list.length }}
+    </span>
     <!-- 悬停时右上角显示：新增（未禁用网格添加格时）；非未分类时显示设置（编辑/删除） -->
     <div
       class="absolute top-3 right-3 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto"
@@ -292,6 +332,14 @@ defineExpose({ openAdd })
         @click.stop="openAdd"
       >
         <span class="material-symbols-outlined text-lg">add</span>
+      </button>
+      <button
+        type="button"
+        class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+        :title="viewLevelTitle"
+        @click.stop="toggleViewLevel"
+      >
+        <span class="material-symbols-outlined text-lg">{{ viewLevelIcon }}</span>
       </button>
       <div v-if="!noRenameDelete" class="relative">
         <button
@@ -347,7 +395,8 @@ defineExpose({ openAdd })
     <!-- 非 hideTitle 时显示分类标题行；编辑布局下标题前显示分类块拖拽把手 -->
     <div
       v-if="!hideTitle"
-      class="flex items-center justify-between mb-6 pl-2 pr-24"
+      class="flex items-center justify-between pl-2 pr-24"
+      :class="viewLevel === 0 ? 'mb-2' : 'mb-6'"
     >
       <h3
         class="font-bold flex items-center gap-1.5 min-w-0 text-slate-800 dark-text-94"
@@ -369,8 +418,12 @@ defineExpose({ openAdd })
     <div
       :class="[
         hideTitle ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,7rem),1fr))] gap-2' : '',
-        'max-h-[30rem] overflow-y-auto min-h-0 custom-scrollbar',
-        hideTitle && noAddInGrid ? 'min-h-[3rem]' : ''
+        'transition-all duration-300 ease-in-out min-h-0 custom-scrollbar',
+        hideTitle && noAddInGrid ? 'min-h-[3rem]' : '',
+        viewLevel === 0 ? 'max-h-0 opacity-0 overflow-hidden invisible !mt-0 !mb-0' : '',
+        viewLevel === 1 ? 'max-h-[146px] overflow-y-auto' : '',
+        viewLevel === 2 ? 'max-h-[512px] overflow-y-auto' : '',
+        viewLevel === 3 ? 'max-h-none overflow-y-auto' : ''
       ]"
     >
       <draggable

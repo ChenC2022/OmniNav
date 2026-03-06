@@ -121,6 +121,20 @@ html.dark .category-settings-menu button:hover:not(:disabled) {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
+/* 深色模式：AI 自动归类结果中的下拉选择，配色与右键菜单统一 */
+html.dark .ai-classify-select {
+  background-color: #0f172a !important;
+  background: rgba(15, 23, 42, 0.98) !important;
+  color: #94a3b8 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color-scheme: dark;
+}
+
+html.dark .ai-classify-select option {
+  background-color: #0f172a;
+  color: #94a3b8;
+}
+
 /* 搜索框下拉菜单：完全不透明（浅色/深色一致） */
 .search-dropdown {
   background-color: #ffffff !important;

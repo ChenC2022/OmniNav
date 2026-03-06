@@ -7,6 +7,7 @@ export const useUiStore = defineStore('ui', () => {
   /** 为 true 时 SearchBar 聚焦并进入书签模式（@），用于 ⌘K 等触发 */
   const triggerBookmarkSearch = ref(false)
   const theme = ref<ThemeMode>('system')
+  const isEditLayout = ref(false)
 
   const effectiveTheme = computed(() => {
     if (theme.value === 'dark') return 'dark'
@@ -43,5 +44,6 @@ export const useUiStore = defineStore('ui', () => {
     toggleDrawer,
     setTheme,
     cycleTheme,
+    isEditLayout,
   }
 })

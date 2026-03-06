@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "dev:api": "vite build && wrangler pages dev dist --port 8789 --kv=KV_OMNINAV",
     "dev:all": "vite build && concurrently -n fe,api \"vite\" \"wrangler pages dev dist --port 8789 --kv=KV_OMNINAV\"",
-    "deploy": "vite build && wrangler pages deploy dist --project-name=omninav"
+    "deploy": "vite build && wrangler pages deploy dist --project-name=omninav",
+    "reset:prod": "./scripts/reset-production-kv.sh"
   },
   "dependencies": {
     "vue": "^3.4.0",

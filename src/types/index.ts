@@ -23,6 +23,8 @@ export interface Category {
   passwordHint?: string
   /** 私密分类密码的哈希，仅校验用，不存明文 */
   passwordHash?: string
+  /** UI 展开层级：0=最小(仅标题), 1=较小(3行), 2=较大(10行), 3=全部展开 */
+  viewLevel?: number
   createdAt?: string
   updatedAt?: string
 }

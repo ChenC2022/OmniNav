@@ -69,6 +69,14 @@ async function send() {
     loading.value = false
   }
 }
+
+function clearChat() {
+  messages.value = []
+  input.value = ''
+  error.value = null
+}
+
+defineExpose({ clearChat })
 </script>
 
 <template>

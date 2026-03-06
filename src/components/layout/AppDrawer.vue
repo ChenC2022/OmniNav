@@ -8,6 +8,7 @@ import ChatPanel from '@/components/chat/ChatPanel.vue'
 const ui = useUiStore()
 const { drawerOpen } = storeToRefs(ui)
 const drawerEl = ref<HTMLElement | null>(null)
+const chatPanelRef = ref<InstanceType<typeof ChatPanel> | null>(null)
 
 onClickOutside(drawerEl, () => {
   if (drawerOpen.value) ui.toggleDrawer()
@@ -30,17 +31,28 @@ onClickOutside(drawerEl, () => {
             </div>
             <h2 class="font-bold text-slate-900 dark:text-white drawer-panel-title">AI 对话</h2>
           </div>
-          <button
-            type="button"
-            class="drawer-panel-close p-2 rounded-xl opacity-60 hover:opacity-100 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all"
-            aria-label="关闭"
-            @click="ui.toggleDrawer()"
-          >
-            <span class="material-symbols-outlined">close</span>
-          </button>
+          <div class="flex items-center gap-1">
+            <button
+              type="button"
+              class="p-2 rounded-xl opacity-60 hover:opacity-100 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all"
+              aria-label="新建会话"
+              title="新建会话"
+              @click="chatPanelRef?.clearChat()"
+            >
+              <span class="material-symbols-outlined text-[20px]">refresh</span>
+            </button>
+            <button
+              type="button"
+              class="drawer-panel-close p-2 rounded-xl opacity-60 hover:opacity-100 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all"
+              aria-label="关闭"
+              @click="ui.toggleDrawer()"
+            >
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
         </div>
         <div class="flex-1 min-h-0 overflow-hidden flex flex-col chat-panel-wrap">
-          <ChatPanel @close="ui.toggleDrawer()" />
+          <ChatPanel ref="chatPanelRef" @close="ui.toggleDrawer()" />
         </div>
       </aside>
     </Transition>

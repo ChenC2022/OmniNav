@@ -153,7 +153,7 @@ function close() {
             </div>
             <div>
               <div class="flex items-center justify-between gap-2 mb-1">
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">说明（选填）</label>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">描述（选填）</label>
                 <button
                   type="button"
                   class="text-xs px-2 py-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-50 flex items-center gap-1"
@@ -161,14 +161,14 @@ function close() {
                   @click="generateDescriptionByAI"
                 >
                   <span class="material-symbols-outlined text-sm">{{ generatingDescription ? 'progress_activity' : 'auto_awesome' }}</span>
-                  {{ generatingDescription ? '生成中…' : 'AI 生成说明' }}
+                  {{ generatingDescription ? '生成中…' : 'AI 生成描述' }}
                 </button>
               </div>
               <textarea
                 v-model="description"
-                rows="2"
+                rows="4"
                 class="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 px-3 py-2 text-sm resize-none"
-                placeholder="如：开发工具、文档与教程"
+                placeholder="如：开发工具、文档与教程，描述该分类的用途..."
               />
               <p v-if="generateDescriptionError" class="mt-1 text-xs text-red-500 dark:text-red-400">{{ generateDescriptionError }}</p>
             </div>

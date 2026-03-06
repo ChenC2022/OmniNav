@@ -61,41 +61,67 @@ async function logout() {
       <div class="header-center flex-1 min-w-0 flex items-center justify-center max-w-2xl min-w-0 px-2 hidden sm:flex">
         <SearchBar />
       </div>
-      <div class="header-right flex items-center gap-2 shrink-0">
-        <button
-          type="button"
-          class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 shrink-0"
-          :title="themeTitle"
-          :aria-label="themeTitle"
-          @click="cycleThemeAndPersist"
-        >
-          <span class="material-symbols-outlined text-[22px]">{{ themeIcon }}</span>
-        </button>
-        <button
-          type="button"
-          class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer shrink-0 bg-indigo-500 dark:bg-indigo-400 text-white hover:bg-indigo-600 dark:hover:bg-indigo-300 active:scale-[0.98]"
-          title="AI 对话"
-          aria-label="AI 对话"
-          @click="ui.toggleDrawer()"
-        >
-          <span class="material-symbols-outlined text-[22px]">auto_awesome</span>
-        </button>
-        <RouterLink
-          to="/settings"
-          class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
-          aria-label="设置"
-        >
-          <span class="material-symbols-outlined text-[22px]">settings</span>
-        </RouterLink>
-        <button
-          type="button"
-          class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
-          title="退出登录"
-          aria-label="退出登录"
-          @click="logout"
-        >
-          <span class="material-symbols-outlined text-[22px]">logout</span>
-        </button>
+      <div class="header-right flex items-center shrink-0">
+        <!-- 拖动开关：带左右垂直分隔线 -->
+        <div class="hidden lg:flex items-center gap-2 px-3 border-x border-slate-200/60 dark:border-white/10 mr-1">
+          <label
+            class="inline-flex items-center gap-2 cursor-pointer select-none"
+            :title="ui.isEditLayout ? '已开启：拖拽卡片可调整顺序' : '点击开启后，拖拽可调整书签顺序'"
+          >
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">拖动书签</span>
+            <span
+              class="toggle-track relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ease-in-out"
+              :class="ui.isEditLayout ? 'is-on' : ''"
+            >
+              <input
+                v-model="ui.isEditLayout"
+                type="checkbox"
+                class="sr-only"
+              >
+              <span
+                class="toggle-thumb pointer-events-none inline-block size-3.5 rounded-full transition-transform duration-200 ease-in-out mt-[3px] ml-[3px]"
+                :class="ui.isEditLayout ? 'translate-x-[14px]' : 'translate-x-0'"
+              />
+            </span>
+          </label>
+        </div>
+
+        <div class="flex items-center gap-2 ml-1">
+          <button
+            type="button"
+            class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 shrink-0"
+            :title="themeTitle"
+            :aria-label="themeTitle"
+            @click="cycleThemeAndPersist"
+          >
+            <span class="material-symbols-outlined text-[22px]">{{ themeIcon }}</span>
+          </button>
+          <button
+            type="button"
+            class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer shrink-0 bg-indigo-500 dark:bg-indigo-400 text-white hover:bg-indigo-600 dark:hover:bg-indigo-300 active:scale-[0.98]"
+            title="AI 对话"
+            aria-label="AI 对话"
+            @click="ui.toggleDrawer()"
+          >
+            <span class="material-symbols-outlined text-[22px]">auto_awesome</span>
+          </button>
+          <RouterLink
+            to="/settings"
+            class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+            aria-label="设置"
+          >
+            <span class="material-symbols-outlined text-[22px]">settings</span>
+          </RouterLink>
+          <button
+            type="button"
+            class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center glass-translucent border border-slate-200/60 dark:border-white/20 text-slate-600 dark:text-white/80 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+            title="退出登录"
+            aria-label="退出登录"
+            @click="logout"
+          >
+            <span class="material-symbols-outlined text-[22px]">logout</span>
+          </button>
+        </div>
       </div>
     </div>
   </header>
