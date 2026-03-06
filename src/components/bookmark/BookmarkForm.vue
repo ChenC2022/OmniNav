@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import type { Bookmark } from '@/types'
 import { nanoid } from '@/utils/id'
 import { apiFetch } from '@/utils/api'
+import { useCategoriesStore } from '@/stores/categories'
 
 const props = defineProps<{
   modelValue: boolean
@@ -20,6 +21,9 @@ const description = ref('')
 const generatingInfo = ref(false)
 const generateInfoError = ref('')
 
+const categoriesStore = useCategoriesStore()
+const selectedCategoryId = ref('')
+
 watch(
   () => [props.modelValue, props.edit] as const,
   ([open, b]) => {
@@ -29,10 +33,12 @@ watch(
         title.value = b.title
         url.value = b.url
         description.value = b.description ?? ''
+        selectedCategoryId.value = b.categoryId
       } else {
         title.value = ''
         url.value = ''
         description.value = ''
+        selectedCategoryId.value = props.categoryId
       }
     }
   },
@@ -52,14 +58,19 @@ async function generateInfoByAI() {
     })
     const metaData = await metaRes.json().catch(() => ({}))
     
+    const existingCategories = categoriesStore.items.map(c => c.name)
+    const catList = existingCategories.length > 0 ? `现有分类列表: ${existingCategories.join(', ')}。` : ''
+    
     const prompt = `URL: ${u}。
 页面标题: ${metaData.title || ''}
 页面描述: ${metaData.description || ''}
 页面摘录: ${metaData.snippet || ''}
 
+${catList}
 请根据以上信息为该书签建议一个更准确、简洁的标题（如站点名、产品名，2~15字）和一句简短描述（1~2句话，介绍内容或用途）。
+${existingCategories.length > 0 ? '同时请从上述分类列表中选择一个最合适的分类归属。' : ''}
 请仅输出 JSON 格式，不要包含任何 Markdown 代码块或多余文字。格式示例：
-{"title": "建议的标题", "description": "建议的描述"}`
+{"title": "建议的标题", "description": "建议的描述"${existingCategories.length > 0 ? ', "category": "分类名"' : ''}}`
 
     const aiRes = await apiFetch('/api/ai/chat', {
       method: 'POST',
@@ -83,6 +94,13 @@ async function generateInfoByAI() {
     const parsed = JSON.parse(text)
     if (parsed.title) title.value = parsed.title
     if (parsed.description) description.value = parsed.description
+    
+    if (parsed.category) {
+      const matched = categoriesStore.items.find(c => c.name === parsed.category)
+      if (matched) {
+        selectedCategoryId.value = matched.id
+      }
+    }
   } catch (err) {
     generateInfoError.value = 'AI 分析失败'
   } finally {
@@ -109,7 +127,7 @@ function submit() {
     title: displayTitle,
     url: u,
     description: description.value.trim() || undefined,
-    categoryId: props.edit?.categoryId ?? props.categoryId,
+    categoryId: selectedCategoryId.value,
     order: props.edit?.order ?? 0,
     ...(props.edit ? {} : { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }),
   })
@@ -130,17 +148,17 @@ function close() {
         @click.self="close"
       >
         <div
-          class="w-full max-w-md rounded-xl bg-white dark:bg-zinc-800 shadow-xl p-5 border border-zinc-200 dark:border-zinc-700"
+          class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-6 border border-slate-200/60 dark:border-white/10"
           role="dialog"
           aria-label="添加或编辑书签"
         >
-          <h3 class="text-lg font-medium text-zinc-800 dark:text-zinc-200 mb-4">
+          <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-6">
             {{ edit ? '编辑书签' : '添加书签' }}
           </h3>
-          <form @submit.prevent="submit" class="space-y-3">
+          <form @submit.prevent="submit" class="space-y-5">
             <div>
-              <div class="flex items-center justify-between gap-2 mb-1">
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">URL</label>
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300">URL</label>
                 <button
                   type="button"
                   class="text-xs px-2 py-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-50 flex items-center gap-1"
@@ -155,42 +173,54 @@ function close() {
                 v-model="url"
                 type="url"
                 required
-                class="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 px-3 py-2 text-sm"
+                class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
                 placeholder="https://..."
               />
               <p v-if="generateInfoError" class="mt-1 text-xs text-red-500 dark:text-red-400">{{ generateInfoError }}</p>
             </div>
             <div>
-              <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">标题（可选）</label>
+              <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">所属分类</label>
+              <select
+                v-model="selectedCategoryId"
+                class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
+              >
+                <option v-for="cat in categoriesStore.items" :key="cat.id" :value="cat.id">
+                  {{ cat.name }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">标题（可选）</label>
               <input
                 v-model="title"
                 type="text"
-                class="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 px-3 py-2 text-sm"
+                class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
                 placeholder="不填则使用网址域名"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">描述（可选）</label>
+              <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">描述（可选）</label>
               <textarea
                 v-model="description"
                 rows="3"
-                class="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 px-3 py-2 text-sm resize-none"
+                class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all resize-none"
                 placeholder="简要说明该书签的内容..."
               />
             </div>
             <div class="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                class="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/5 dark:hover:bg-white/5"
+                class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
                 @click="close"
               >
                 取消
               </button>
               <button
                 type="submit"
-                class="px-3 py-1.5 rounded-lg bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-900 font-medium"
+                class="px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 dark:bg-indigo-400 dark:hover:bg-indigo-300 text-white font-semibold shadow-sm transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-w-[80px]"
                 :disabled="generatingInfo"
               >
+                <span v-if="generatingInfo" class="material-symbols-outlined text-[18px] animate-spin mr-1.5">progress_activity</span>
                 {{ generatingInfo ? '稍后...' : '保存' }}
               </button>
             </div>

@@ -8,6 +8,7 @@ import { useDataSync } from '@/composables/useDataSync'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppDrawer from '@/components/layout/AppDrawer.vue'
 import type { SyncStatus } from '@/stores/sync'
+import BackToTop from '@/components/common/BackToTop.vue'
 
 const syncStore = useSyncStore()
 const syncLabel = computed(() => {
@@ -24,7 +25,6 @@ const syncIcon = computed(() => {
 })
 
 const ui = useUiStore()
-const settings = useSettingsStore()
 const { persistTheme, persistSettings } = useSettingsSync()
 const { saveBookmarks, saveCategories, savePinned } = useDataSync()
 provide('persistTheme', persistTheme)
@@ -72,6 +72,7 @@ watch(
         </p>
       </main>
       <AppDrawer />
+      <BackToTop trigger-selector=".pinned-section" />
     </div>
   </div>
 </template>
