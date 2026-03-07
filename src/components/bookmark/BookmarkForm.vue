@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
+import { onClickOutside } from '@vueuse/core'
 import type { Bookmark } from '@/types'
 import { nanoid } from '@/utils/id'
 import { apiFetch } from '@/utils/api'
@@ -23,6 +24,16 @@ const generateInfoError = ref('')
 
 const categoriesStore = useCategoriesStore()
 const selectedCategoryId = ref('')
+const categoryDropdownOpen = ref(false)
+const categoryDropdownRef = ref<HTMLElement | null>(null)
+onClickOutside(categoryDropdownRef, () => { categoryDropdownOpen.value = false })
+const selectedCategoryName = computed(() =>
+  categoriesStore.items.find(c => c.id === selectedCategoryId.value)?.name ?? ''
+)
+function selectCategory(id: string) {
+  selectedCategoryId.value = id
+  categoryDropdownOpen.value = false
+}
 
 watch(
   () => [props.modelValue, props.edit] as const,
@@ -180,14 +191,38 @@ function close() {
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">所属分类</label>
-              <select
-                v-model="selectedCategoryId"
-                class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
-              >
-                <option v-for="cat in categoriesStore.items" :key="cat.id" :value="cat.id">
-                  {{ cat.name }}
-                </option>
-              </select>
+              <div ref="categoryDropdownRef" class="relative">
+                <button
+                  type="button"
+                  class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2.5 text-sm text-left flex items-center justify-between gap-2 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all hover:border-slate-300 dark:hover:border-white/20"
+                  :aria-expanded="categoryDropdownOpen"
+                  aria-haspopup="listbox"
+                  aria-label="选择所属分类"
+                  @click="categoryDropdownOpen = !categoryDropdownOpen"
+                >
+                  <span class="truncate">{{ selectedCategoryName || '请选择' }}</span>
+                  <span class="material-symbols-outlined text-lg shrink-0 text-slate-500 dark:text-slate-400" :class="categoryDropdownOpen ? 'rotate-180' : ''">expand_more</span>
+                </button>
+                <Transition name="dropdown">
+                  <ul
+                    v-show="categoryDropdownOpen"
+                    class="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 shadow-lg py-1 custom-scrollbar"
+                    role="listbox"
+                  >
+                    <li
+                      v-for="cat in categoriesStore.items"
+                      :key="cat.id"
+                      role="option"
+                      :aria-selected="selectedCategoryId === cat.id"
+                      class="px-3 py-2.5 text-sm cursor-pointer text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/80 focus:bg-slate-100 dark:focus:bg-slate-700/80 focus:outline-none"
+                      :class="selectedCategoryId === cat.id ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-200' : ''"
+                      @click="selectCategory(cat.id)"
+                    >
+                      {{ cat.name }}
+                    </li>
+                  </ul>
+                </Transition>
+              </div>
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">标题（可选）</label>
@@ -239,5 +274,14 @@ function close() {
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;
+}
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 </style>
