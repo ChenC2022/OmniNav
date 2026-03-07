@@ -77,8 +77,8 @@ export function useDataSync() {
       put(API.categories, [...categoriesList, newCat]).catch(() => {})
     }
 
-    // 不再在首次空数据时自动注入演示数据，新部署保持空状态；演示数据请到设置页「加载演示数据」手动加载
-    cleanOrphanedPinned()
+    // 仅在书签加载成功时清理常用中的失效 ID，避免书签请求失败时误把常用清空并写回服务器导致刷新后常用消失
+    if (bRes.ok) cleanOrphanedPinned()
     } finally {
       syncStore.setIdle()
     }
@@ -110,6 +110,7 @@ export function useDataSync() {
   }
 
   return {
+    loadData: loadAndMaybeSeed,
     saveBookmarks,
     saveCategories,
     savePinned,

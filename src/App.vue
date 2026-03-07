@@ -26,9 +26,10 @@ const syncIcon = computed(() => {
 
 const ui = useUiStore()
 const { persistTheme, persistSettings } = useSettingsSync()
-const { saveBookmarks, saveCategories, savePinned } = useDataSync()
+const { loadData, saveBookmarks, saveCategories, savePinned } = useDataSync()
 provide('persistTheme', persistTheme)
 provide('persistSettings', persistSettings)
+provide('loadData', loadData)
 provide('saveBookmarks', saveBookmarks)
 provide('saveCategories', saveCategories)
 provide('savePinned', savePinned)

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { apiFetch } from '@/utils/api'
 
 const router = useRouter()
 const route = useRoute()
+const loadData = inject<() => Promise<void>>('loadData')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
@@ -56,6 +57,7 @@ async function submitInitialSetup() {
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok && data.ok) {
+      await loadData?.()
       router.push(redirect.value)
       return
     }
@@ -91,6 +93,7 @@ async function submit() {
         setPasswordError.value = ''
         return
       }
+      await loadData?.()
       router.push(redirect.value)
       return
     }
@@ -136,6 +139,7 @@ async function submitSetPassword() {
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok && data.ok) {
+      await loadData?.()
       router.push(redirect.value)
       return
     }
