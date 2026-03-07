@@ -286,7 +286,6 @@ defineExpose({ openAdd })
       <div class="absolute inset-0 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md z-10 flex flex-col items-center justify-center p-6 text-center">
         <span class="material-symbols-outlined text-4xl mb-4 text-indigo-400">lock</span>
         <h3 class="font-bold mb-2 text-slate-900 dark:text-white">保险库已锁定</h3>
-        <p class="text-xs text-slate-500 dark:text-white/90 mb-6">输入主密码访问私密链接</p>
         <div class="w-full max-w-[220px] space-y-3">
           <input
             v-model="unlockPassword"
@@ -317,7 +316,7 @@ defineExpose({ openAdd })
           {{ category.name }}
         </h3>
       </div>
-      <div class="space-y-2 opacity-10">
+      <div class="min-h-[158px] max-h-[158px] space-y-2 opacity-10">
         <div class="h-8 bg-slate-200 dark:bg-slate-700 rounded-lg" />
         <div class="h-8 bg-slate-200 dark:bg-slate-700 rounded-lg" />
         <div class="h-8 bg-slate-200 dark:bg-slate-700 rounded-lg" />
