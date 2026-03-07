@@ -251,6 +251,16 @@ function closeSettingsMenu() {
   settingsMenuOpen.value = false
 }
 
+/** 点击分类名打开「该分类下全部书签」浮层；私密且未解锁时不可点击 */
+const canOpenBookmarksOverlay = computed(() => showContent.value)
+const bookmarksOverlayOpen = ref(false)
+function openBookmarksOverlay() {
+  if (canOpenBookmarksOverlay.value) bookmarksOverlayOpen.value = true
+}
+function closeBookmarksOverlay() {
+  bookmarksOverlayOpen.value = false
+}
+
 function onCheckAndCleanupClick() {
   closeSettingsMenu()
   runCheckAndCleanupForCategory?.(props.category.id)
@@ -314,48 +324,6 @@ defineExpose({ openAdd })
       </div>
     </template>
     <template v-else>
-    <!-- 非悬停时右上角：书签数量角标（悬停时隐藏，让位给操作按钮） -->
-    <span
-      v-if="list.length > 0"
-      class="absolute top-3 right-3.5 z-[5] text-[11px] tabular-nums font-medium text-slate-400/70 dark:text-slate-500/70 opacity-100 group-hover:opacity-0 transition-opacity duration-200 pointer-events-none select-none"
-    >
-      {{ list.length }}
-    </span>
-    <!-- 悬停时右上角显示：新增（未禁用网格添加格时）；非未分类时显示设置（编辑/删除） -->
-    <div
-      class="absolute top-3 right-3 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto"
-    >
-      <button
-        v-if="!noAddInGrid"
-        type="button"
-        class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-        title="新增书签"
-        @click.stop="openAdd"
-      >
-        <span class="material-symbols-outlined text-lg">add</span>
-      </button>
-      <button
-        type="button"
-        class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-        :title="viewLevelTitle"
-        @click.stop="toggleViewLevel"
-      >
-        <span class="material-symbols-outlined text-lg">{{ viewLevelIcon }}</span>
-      </button>
-      <div v-if="!noRenameDelete" class="relative">
-        <button
-          ref="settingsTriggerRef"
-          type="button"
-          class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 bg-transparent dark:bg-slate-700/80 hover:bg-slate-200/50 dark:hover:bg-slate-600/80 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-          title="设置"
-          aria-haspopup="menu"
-          :aria-expanded="settingsMenuOpen"
-          @click.stop="toggleSettingsMenu()"
-        >
-          <span class="material-symbols-outlined text-lg">settings</span>
-        </button>
-      </div>
-    </div>
     <!-- 分类设置菜单：Teleport 到 body 避免被卡片裁剪，更紧凑的图标排布 -->
     <Teleport to="body">
       <Transition name="menu-pop">
@@ -393,10 +361,70 @@ defineExpose({ openAdd })
         </div>
       </Transition>
     </Teleport>
-    <!-- 非 hideTitle 时显示分类标题行；编辑布局下标题前显示分类块拖拽把手 -->
+    <!-- 分类全部书签浮层：点击分类名打开，私密未解锁时不显示 -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="bookmarksOverlayOpen"
+          class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 dark:bg-black/50 backdrop-blur-sm modal-fade-overlay"
+          @click.self="closeBookmarksOverlay"
+        >
+          <div
+            class="modal-fade-panel w-full max-w-[70vw] max-h-[80vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-200 dark:border-white/20 flex flex-col bg-white/95 dark:bg-white/5 backdrop-blur-xl"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="`${category.name} 书签列表`"
+          >
+            <div class="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0">
+              <span class="font-semibold text-slate-800 dark-text-94 truncate min-w-0">
+                {{ category.name }} · 共 {{ bookmarksInCategory.length }} 个书签
+              </span>
+              <button
+                type="button"
+                class="shrink-0 p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-slate-700 dark:hover:text-white transition-colors"
+                title="关闭"
+                aria-label="关闭"
+                @click="closeBookmarksOverlay"
+              >
+                <span class="material-symbols-outlined text-xl block">close</span>
+              </button>
+            </div>
+            <div class="flex-1 min-h-0 overflow-y-auto p-4 custom-scrollbar">
+              <div
+                v-if="bookmarksInCategory.length === 0"
+                class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center"
+              >
+                该分类下暂无书签
+              </div>
+              <div
+                v-else
+                class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,6.5rem),1fr))] place-items-start"
+              >
+                <div
+                  v-for="b in bookmarksInCategory"
+                  :key="b.id"
+                  class="flex flex-col items-center min-w-0 w-full p-2 rounded-xl hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-context-menu"
+                  @contextmenu.prevent="(e) => openContextMenu(e, b)"
+                >
+                  <BookmarkIcon
+                    :bookmark="b"
+                    show-title
+                    size="lg"
+                    :not-draggable="true"
+                    :no-hover-bg="true"
+                    class="!p-0 w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+    <!-- 非 hideTitle 时显示分类标题行：分类名与右侧三个按键同一 flex 行、垂直居中；点击分类名（私密未解锁时不可点）打开该分类全部书签浮层 -->
     <div
       v-if="!hideTitle"
-      class="flex items-center justify-between pl-2 pr-24"
+      class="flex items-center justify-between gap-2 pl-2 pr-2 min-h-9"
       :class="viewLevel === 0 ? 'mb-2' : 'mb-6'"
     >
       <h3
@@ -411,17 +439,72 @@ defineExpose({ openAdd })
         >
           <span class="material-symbols-outlined text-xl leading-none block">drag_indicator</span>
         </span>
-        <span v-if="category.isPrivate" class="material-symbols-outlined text-indigo-400 text-lg shrink-0">lock</span>
-        <span class="truncate">{{ category.name }}</span>
+        <span
+          v-if="category.isPrivate"
+          class="material-symbols-outlined text-indigo-400 text-lg shrink-0"
+        >
+          lock
+        </span>
+        <span
+          class="truncate min-w-0"
+          :class="canOpenBookmarksOverlay ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors' : ''"
+          :title="canOpenBookmarksOverlay ? '点击查看本分类全部书签' : undefined"
+          @click="openBookmarksOverlay"
+        >
+          {{ category.name }}
+        </span>
       </h3>
+      <!-- 右侧：非悬停显示书签数量角标，悬停显示三个操作键（新增 / 展开层级 / 设置） -->
+      <div class="relative shrink-0 min-h-9 min-w-[7.25rem] flex items-center justify-end">
+        <span
+          v-if="list.length > 0"
+          class="text-[11px] tabular-nums font-medium text-slate-400/70 dark:text-slate-500/70 opacity-100 group-hover:opacity-0 transition-opacity duration-200 pointer-events-none select-none"
+        >
+          {{ list.length }}
+        </span>
+        <div
+          class="absolute inset-y-0 right-0 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto"
+        >
+          <button
+            v-if="!noAddInGrid"
+            type="button"
+            class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            title="新增书签"
+            @click.stop="openAdd"
+          >
+            <span class="material-symbols-outlined text-lg">add</span>
+          </button>
+          <button
+            type="button"
+            class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            :title="viewLevelTitle"
+            @click.stop="toggleViewLevel"
+          >
+            <span class="material-symbols-outlined text-lg">{{ viewLevelIcon }}</span>
+          </button>
+          <div v-if="!noRenameDelete" class="relative">
+            <button
+              ref="settingsTriggerRef"
+              type="button"
+              class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 bg-transparent dark:bg-slate-700/80 hover:bg-slate-200/50 dark:hover:bg-slate-600/80 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+              title="设置"
+              aria-haspopup="menu"
+              :aria-expanded="settingsMenuOpen"
+              @click.stop="toggleSettingsMenu()"
+            >
+              <span class="material-symbols-outlined text-lg">settings</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-    <!-- 书签网格：未分类（hideTitle）为自适应列数，分类卡片为 2 列；限制高度约 10 行，超出可滚动；未分类无书签时保持最小高度便于拖放落入 -->
+    <!-- 书签网格：未分类（hideTitle）为自适应列数，分类卡片为 2 列；限制高度约 10 行，超出可滚动；未分类无书签时保持最小高度便于拖放落入；折叠为「仅标题」时内容区高度 1rem -->
     <div
       :class="[
         hideTitle ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,7rem),1fr))] gap-2' : '',
         'transition-all duration-300 ease-in-out min-h-0 custom-scrollbar',
         hideTitle && noAddInGrid ? 'min-h-[3rem]' : '',
-        viewLevel === 0 ? 'max-h-0 opacity-0 overflow-hidden invisible !mt-0 !mb-0' : '',
+        viewLevel === 0 ? 'min-h-[1rem] max-h-[1rem] opacity-0 overflow-hidden invisible !mt-0 !mb-0' : '',
         viewLevel === 1 ? 'max-h-[146px] overflow-y-auto' : '',
         viewLevel === 2 ? 'max-h-[512px] overflow-y-auto' : '',
         viewLevel === 3 ? 'max-h-none overflow-y-auto' : ''
