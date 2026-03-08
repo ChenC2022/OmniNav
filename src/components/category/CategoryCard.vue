@@ -195,6 +195,7 @@ function openInNewWindow(bookmark: Bookmark) {
 }
 
 function handleContextEdit(bookmark: Bookmark) {
+  if (bookmarksOverlayOpen.value) closeBookmarksOverlay()
   openEdit(bookmark)
   closeContextMenu()
 }
@@ -397,12 +398,12 @@ defineExpose({ openAdd })
               </div>
               <div
                 v-else
-                class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,6.5rem),1fr))] place-items-start"
+                class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(6.5rem,7rem))] place-items-start"
               >
                 <div
                   v-for="b in bookmarksInCategory"
                   :key="b.id"
-                  class="flex flex-col items-center min-w-0 w-full p-2 rounded-xl hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-context-menu"
+                  class="flex flex-col items-center min-w-0 w-full max-w-full overflow-hidden p-2 rounded-xl hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-context-menu"
                   @contextmenu.prevent="(e) => openContextMenu(e, b)"
                 >
                   <BookmarkIcon
@@ -411,7 +412,7 @@ defineExpose({ openAdd })
                     size="lg"
                     :not-draggable="true"
                     :no-hover-bg="true"
-                    class="!p-0 w-full"
+                    class="!p-0 w-full min-w-0 max-w-full"
                   />
                 </div>
               </div>
