@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { Bookmark } from '@/types'
+
+defineOptions({ inheritAttrs: false })
 import { useHealthCheckStore } from '@/stores/healthCheck'
 import { useSettingsStore } from '@/stores/settings'
 import { faviconUrl, faviconFallbackUrl } from '@/utils/favicon'
+import AppTooltip from '@/components/ui/AppTooltip.vue'
 
 const settingsStore = useSettingsStore()
 
@@ -84,17 +87,18 @@ function onIconError() {
 </script>
 
 <template>
-  <a
-    :href="bookmark.url"
-    :target="linkTarget"
-    rel="noopener noreferrer"
-    :draggable="!notDraggable"
-    :class="[
-      'flex flex-col items-center gap-2 rounded-xl p-3 min-w-[4rem] transition-colors duration-200 group cursor-pointer',
-      noHoverBg ? '[color:inherit]' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/10'
-    ]"
-    :title="bookmark.description || bookmark.title"
-  >
+  <AppTooltip :content="bookmark.description || bookmark.title || undefined" class="flex flex-1 min-w-0">
+    <a
+      v-bind="$attrs"
+      :href="bookmark.url"
+      :target="linkTarget"
+      rel="noopener noreferrer"
+      :draggable="!notDraggable"
+      :class="[
+        'flex flex-col items-center gap-2 rounded-xl p-3 min-w-[4rem] transition-colors duration-200 group cursor-pointer',
+        noHoverBg ? '[color:inherit]' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/10'
+      ]"
+    >
     <div class="relative shrink-0">
       <img
         v-if="iconStage !== 'letter'"
@@ -129,5 +133,6 @@ function onIconError() {
     >
       <span class="text-xs font-semibold truncate min-w-0 flex-1">{{ bookmark.title }}</span>
     </span>
-  </a>
+    </a>
+  </AppTooltip>
 </template>

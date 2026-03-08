@@ -10,6 +10,7 @@ import { usePrivateCategoriesStore } from '@/stores/privateCategories'
 import { hashPassword } from '@/utils/crypto'
 import BookmarkIcon from '@/components/bookmark/BookmarkIcon.vue'
 import BookmarkForm from '@/components/bookmark/BookmarkForm.vue'
+import AppTooltip from '@/components/ui/AppTooltip.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -308,13 +309,12 @@ defineExpose({ openAdd })
         <p v-if="unlockError" class="mt-2 text-xs text-red-500 dark:text-red-400">{{ unlockError }}</p>
       </div>
       <div v-if="!hideTitle" class="flex items-center justify-between mb-6 opacity-20 pointer-events-none">
-        <h3
-          class="font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200"
-          :title="category.description ?? undefined"
-        >
-          <span class="material-symbols-outlined text-indigo-400 text-lg">lock</span>
-          {{ category.name }}
-        </h3>
+        <AppTooltip :content="category.description ?? undefined">
+          <h3 class="font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
+            <span class="material-symbols-outlined text-indigo-400 text-lg">lock</span>
+            {{ category.name }}
+          </h3>
+        </AppTooltip>
       </div>
       <div class="min-h-[158px] max-h-[158px] space-y-2 opacity-10">
         <div class="h-8 bg-slate-200 dark:bg-slate-700 rounded-lg" />
@@ -426,33 +426,33 @@ defineExpose({ openAdd })
       class="flex items-center justify-between gap-2 pl-2 pr-2 min-h-9"
       :class="viewLevel === 0 ? 'mb-2' : 'mb-6'"
     >
-      <h3
-        class="font-bold flex items-center gap-1.5 min-w-0 text-slate-800 dark-text-94"
-        :title="category.description ?? undefined"
+      <AppTooltip
+        :content="category.description ?? (canOpenBookmarksOverlay ? '点击查看本分类全部书签' : undefined)"
       >
-        <span
-          v-if="editLayout"
-          class="category-drag-handle shrink-0 flex items-center justify-center w-5 h-5 cursor-grab active:cursor-grabbing text-slate-400 dark:text-slate-500 touch-none"
-          title="拖拽以移动分类"
-          aria-label="拖拽以移动分类"
-        >
-          <span class="material-symbols-outlined text-xl leading-none block">drag_indicator</span>
-        </span>
-        <span
-          v-if="category.isPrivate"
-          class="material-symbols-outlined text-indigo-400 text-lg shrink-0"
-        >
-          lock
-        </span>
-        <span
-          class="truncate min-w-0"
-          :class="canOpenBookmarksOverlay ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors' : ''"
-          :title="canOpenBookmarksOverlay ? '点击查看本分类全部书签' : undefined"
-          @click="openBookmarksOverlay"
-        >
-          {{ category.name }}
-        </span>
-      </h3>
+        <h3 class="font-bold flex items-center gap-1.5 min-w-0 text-slate-800 dark-text-94">
+          <span
+            v-if="editLayout"
+            class="category-drag-handle shrink-0 flex items-center justify-center w-5 h-5 cursor-grab active:cursor-grabbing text-slate-400 dark:text-slate-500 touch-none"
+            title="拖拽以移动分类"
+            aria-label="拖拽以移动分类"
+          >
+            <span class="material-symbols-outlined text-xl leading-none block">drag_indicator</span>
+          </span>
+          <span
+            v-if="category.isPrivate"
+            class="material-symbols-outlined text-indigo-400 text-lg shrink-0"
+          >
+            lock
+          </span>
+          <span
+            class="truncate min-w-0"
+            :class="canOpenBookmarksOverlay ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors' : ''"
+            @click="openBookmarksOverlay"
+          >
+            {{ category.name }}
+          </span>
+        </h3>
+      </AppTooltip>
       <!-- 右侧：非悬停显示书签数量角标，悬停显示三个操作键（新增 / 展开层级 / 设置） -->
       <div class="relative shrink-0 min-h-9 min-w-[7.25rem] flex items-center justify-end">
         <span
