@@ -1171,7 +1171,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         item-key="id"
         :handle="isEditLayout ? '.category-drag-handle' : undefined"
         :class="USE_COLUMN_LAYOUT
-          ? 'columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 [column-gap:1rem]'
+          ? 'columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 [column-gap:1rem]'
           : 'grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))] items-start'"
         ghost-class="opacity-50"
         :disabled="!isEditLayout"

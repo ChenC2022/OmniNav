@@ -137,7 +137,7 @@
 - **过渡动画** ✅：Drawer 滑入与背板使用 cubic-bezier/ease-out；首页「添加到常用」弹窗与右键菜单、分类卡片操作菜单使用 modal-fade / menu-pop（淡入 + 微缩放）；Settings 确认导入等使用全局 modal 淡入。
 - **Footer** ✅：同步状态提示（「已与云端同步」/「同步中…」/「离线」）、主题胶囊与玻璃样式一致（glass-translucent），主题按钮带 aria-label。
 - **励志语录/热搜占位** ✅：首页常用与分类间增加语录条，`src/data/quotes.ts` 静态随机语录，后续可接 API/热搜。
-- **布局与宽屏自适应** ✅：主区域 max-width 1920px（A+C）；分类区支持 CSS 多列布局（`USE_COLUMN_LAYOUT`，窄屏 1 列至宽屏 5 列，卡片 `break-inside-avoid` 不截断），卡片高度由内容决定（`items-start`）；未分类区书签网格自适应列数（`auto-fill` + `minmax(min(100%,7rem),1fr)`）；回退时改 `USE_COLUMN_LAYOUT = false` 即可恢复 Grid 布局。
+- **布局与宽屏自适应** ✅：主区域 max-width 1920px（A+C）；分类区支持 CSS 多列布局（`USE_COLUMN_LAYOUT`，窄屏 1 列至宽屏 4 列，卡片 `break-inside-avoid` 不截断），卡片高度由内容决定（`items-start`）；未分类区书签网格自适应列数（`auto-fill` + `minmax(min(100%,7rem),1fr)`）；回退时改 `USE_COLUMN_LAYOUT = false` 即可恢复 Grid 布局。
 - **收尾** ✅：见 `docs/PRE_DEPLOY_CHECKLIST.md`（功能自测、无障碍与键盘导航、控制台与构建、环境配置）。
 - **关于** ✅：设置页增加「关于」区块，展示应用简介、当前版本（来自 package.json）与主要功能列表。
 
