@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useUiStore } from '@/stores/ui'
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { useCategoriesStore } from '@/stores/categories'
+import { usePinnedStore } from '@/stores/pinned'
 import { SEARCH_ENGINES, getSearchUrl } from '@/constants/searchEngines'
 import { faviconUrl } from '@/utils/favicon'
 import type { Bookmark } from '@/types'
@@ -14,7 +15,9 @@ const ui = useUiStore()
 const { triggerBookmarkSearch } = storeToRefs(ui)
 const bookmarksStore = useBookmarksStore()
 const categoriesStore = useCategoriesStore()
+const pinnedStore = usePinnedStore()
 const persistSettings = inject<() => Promise<void>>('persistSettings')
+const savePinned = inject<() => Promise<void>>('savePinned')
 
 const query = ref('')
 const showEngineDropdown = ref(false)
@@ -119,6 +122,11 @@ function openBookmark(b: Bookmark) {
   const target = settings.data.linkOpenMode === 'currentTab' ? '_self' : '_blank'
   window.open(b.url, target, 'noopener')
   query.value = ''
+}
+
+async function handleTogglePinned(b: Bookmark) {
+  pinnedStore.toggle(b.id)
+  await savePinned?.()
 }
 
 function submit() {
@@ -251,16 +259,17 @@ function onKeydown(e: KeyboardEvent) {
         支持标题、说明、链接、分类名 · 空格分隔多关键词可收窄结果
       </p>
       <template v-if="displayBookmarks.length">
-        <button
+        <div
           v-for="(b, idx) in displayBookmarks"
           :key="b.id"
-          type="button"
-          class="w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors cursor-pointer rounded-lg"
+          class="group w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg transition-colors"
           :class="selectedBookmarkIndex === idx ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-700 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10'"
-          @click="openBookmark(b)"
-          @mouseenter="selectedBookmarkIndex = idx"
         >
-          <div class="flex items-center gap-3 min-w-0">
+          <div
+            class="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+            @click="openBookmark(b)"
+            @mouseenter="selectedBookmarkIndex = idx"
+          >
             <div class="size-8 rounded-lg bg-indigo-500/20 dark:bg-indigo-400/20 flex items-center justify-center shrink-0 overflow-hidden">
               <img
                 :src="faviconUrl(b.url, 24)"
@@ -276,7 +285,17 @@ function onKeydown(e: KeyboardEvent) {
               <span class="text-xs text-slate-500 dark-text-94 truncate opacity-90">{{ getCategoryName(b.categoryId) }} · {{ b.url }}</span>
             </div>
           </div>
-        </button>
+          <button
+            type="button"
+            class="shrink-0 p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-amber-500 dark:hover:text-amber-400 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+            :class="pinnedStore.ids.includes(b.id) ? 'opacity-100 text-amber-500 dark:text-amber-400' : ''"
+            :title="pinnedStore.ids.includes(b.id) ? '从常用移除' : '添加到常用'"
+            aria-label="添加到常用"
+            @click.stop="handleTogglePinned(b)"
+          >
+            <span class="material-symbols-outlined text-lg block" :class="pinnedStore.ids.includes(b.id) ? 'filled' : ''">push_pin</span>
+          </button>
+        </div>
       </template>
       <p v-else class="px-3 py-4 text-center text-sm text-slate-500 dark-text-94">
         {{ bookmarkQuery ? '无匹配书签' : '输入关键词搜索书签' }}
