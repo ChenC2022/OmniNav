@@ -423,11 +423,12 @@ defineExpose({ openAdd })
     <!-- 非 hideTitle 时显示分类标题行：分类名与右侧三个按键同一 flex 行、垂直居中；点击分类名（私密未解锁时不可点）打开该分类全部书签浮层 -->
     <div
       v-if="!hideTitle"
-      class="flex items-center justify-between gap-2 pl-2 pr-2 min-h-9"
+      class="flex items-center justify-between gap-2 pl-2 pr-2 min-h-9 min-w-0"
       :class="viewLevel === 0 ? 'mb-2' : 'mb-6'"
     >
       <AppTooltip
         :content="category.description ?? (canOpenBookmarksOverlay ? '点击查看本分类全部书签' : undefined)"
+        class="min-w-0 flex-1"
       >
         <h3 class="font-bold flex items-center gap-1.5 min-w-0 text-slate-800 dark-text-94">
           <span
