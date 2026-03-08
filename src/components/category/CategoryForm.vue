@@ -5,6 +5,7 @@ import { nanoid } from '@/utils/id'
 import { hashPassword } from '@/utils/crypto'
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { apiFetch } from '@/utils/api'
+import { buildCategoryDescriptionPrompt } from '@/constants/prompts'
 
 const props = defineProps<{
   modelValue: boolean
@@ -65,7 +66,7 @@ async function generateDescriptionByAI() {
         messages: [
           {
             role: 'user',
-            content: `分类名称：${n}。${examples}请为该分类生成一句简短说明（1～2 句话），说明该分类的用途或范围，便于后续将书签归入时判断。只输出说明文字，不要引号或其它前缀。`,
+            content: buildCategoryDescriptionPrompt(n, examples),
           },
         ],
       }),

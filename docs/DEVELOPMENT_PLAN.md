@@ -38,6 +38,7 @@
 - 存储：在 KV 的 `settings` 或单独 key 中存用户填写的 AI 配置（如 `api_key`、`base_url`、`model_name`、`provider` 等）
 - 后端：Hono 的 `/api/ai/chat` 读取该配置，以 OpenAI 兼容方式转发请求；敏感字段（如 api_key）仅存于 KV，不暴露给前端
 - 你当前提供的示例（Gemini 兼容端点）可作为默认或开发环境默认配置，便于联调
+- **提示词**：所有发给大模型的提示词统一在 `src/constants/prompts.ts` 中配置，详见 README 与 `docs/TEST_PROMPTS_AFTER_REFACTOR.md`
 
 ---
 

@@ -2,7 +2,7 @@
 
 书签管理 + AI 助手一体的极简个人工作台，数据同步至 Cloudflare KV，支持自部署。
 
-**版本**：v0.2.5
+**版本**：v0.2.6
 
 ---
 
@@ -55,6 +55,8 @@
 - **API**：Hono on Cloudflare Pages Functions
 - **存储**：Cloudflare KV（`KV_OMNINAV`）
 
+**AI 提示词**：所有发给大模型的提示词统一在 `src/constants/prompts.ts` 中配置，便于修改与多语言扩展；校验脚本见 `scripts/verify-prompts.ts`。
+
 ---
 
 ## 文档
@@ -64,6 +66,7 @@
 - [开发计划](docs/DEVELOPMENT_PLAN.md)
 - [部署到 Cloudflare](docs/DEPLOY_TO_CLOUDFLARE.md)
 - [部署前自测](docs/PRE_DEPLOY_CHECKLIST.md)
+- [AI 提示词配置与测试](docs/TEST_PROMPTS_AFTER_REFACTOR.md)
 
 ---
 
@@ -102,6 +105,7 @@ npm run dev:all
 | `npm run build` | 生产构建 |
 | `npm run deploy` | 构建并部署到 Cloudflare Pages |
 | `npm run reset:prod` | 重置生产环境数据（清空所有 KV 数据） |
+| `npx tsx scripts/verify-prompts.ts` | 校验 AI 提示词配置（不依赖浏览器） |
 
 ---
 

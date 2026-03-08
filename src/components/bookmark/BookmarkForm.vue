@@ -5,6 +5,7 @@ import type { Bookmark } from '@/types'
 import { nanoid } from '@/utils/id'
 import { apiFetch } from '@/utils/api'
 import { useCategoriesStore } from '@/stores/categories'
+import { buildBookmarkSuggestionPrompt } from '@/constants/prompts'
 
 const props = defineProps<{
   modelValue: boolean
@@ -71,17 +72,14 @@ async function generateInfoByAI() {
     
     const existingCategories = categoriesStore.items.map(c => c.name)
     const catList = existingCategories.length > 0 ? `现有分类列表: ${existingCategories.join(', ')}。` : ''
-    
-    const prompt = `URL: ${u}。
-页面标题: ${metaData.title || ''}
-页面描述: ${metaData.description || ''}
-页面摘录: ${metaData.snippet || ''}
-
-${catList}
-请根据以上信息为该书签建议一个更准确、简洁的标题（如站点名、产品名，2~15字）和一句简短描述（1~2句话，介绍内容或用途）。
-${existingCategories.length > 0 ? '同时请从上述分类列表中选择一个最合适的分类归属。' : ''}
-请仅输出 JSON 格式，不要包含任何 Markdown 代码块或多余文字。格式示例：
-{"title": "建议的标题", "description": "建议的描述"${existingCategories.length > 0 ? ', "category": "分类名"' : ''}}`
+    const prompt = buildBookmarkSuggestionPrompt({
+      url: u,
+      title: metaData.title || '',
+      description: metaData.description || '',
+      snippet: metaData.snippet || '',
+      catList,
+      withCategory: existingCategories.length > 0,
+    })
 
     const aiRes = await apiFetch('/api/ai/chat', {
       method: 'POST',

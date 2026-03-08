@@ -9,6 +9,7 @@ import { useCategoriesStore } from '@/stores/categories'
 import { usePinnedStore } from '@/stores/pinned'
 import { useUiStore } from '@/stores/ui'
 import { SEARCH_ENGINES } from '@/constants/searchEngines'
+import { PROMPT_TEST_CONNECTION } from '@/constants/prompts'
 import { parseBookmarkHtmlWithFolders, buildBookmarkHtml } from '@/utils/parseBookmarkHtml'
 import { parseSunPanelJson } from '@/utils/parseSunPanel'
 import { nanoid } from '@/utils/id'
@@ -89,7 +90,7 @@ async function testAiConnection() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: '请回复"连接成功"四个字，不要其他内容。' }],
+        messages: [{ role: 'user', content: PROMPT_TEST_CONNECTION }],
       }),
       signal: controller.signal,
     })

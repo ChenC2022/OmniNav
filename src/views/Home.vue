@@ -17,6 +17,7 @@ import { useHealthCheck } from '@/composables/useHealthCheck'
 import { nanoid } from '@/utils/id'
 import { parseBookmarkHtml } from '@/utils/parseBookmarkHtml'
 import { apiFetch } from '@/utils/api'
+import { AUTO_CLASSIFY, QUICK_ADD } from '@/constants/prompts'
 
 /** 用于存放「仅常用区」独立链接的分类名，不存在时会自动创建；在首页作为独立区域「未分类」展示 */
 const PINNED_ONLY_CATEGORY_NAME = '未分类'
@@ -578,8 +579,8 @@ function buildAutoClassifyPrompt(
 ): string {
   const hasExistingCategories = categories.length > 0
   const catList = hasExistingCategories
-    ? `现有分类（名称与说明，请根据说明判断归属）：\n${categories.map((c) => (c.description ? `- ${c.name}：${c.description}` : `- ${c.name}`)).join('\n')}`
-    : '当前尚无任何现有分类，请为每条链接建议一个合适的新分类名（2～8 个字符），每条输出的 isNew 均应为 true，并填写 categoryDescription。'
+    ? `${AUTO_CLASSIFY.catListExistingPrefix}\n${categories.map((c) => (c.description ? `- ${c.name}：${c.description}` : `- ${c.name}`)).join('\n')}`
+    : AUTO_CLASSIFY.catListEmpty
   const hasSummary = items.some((x) => x.summary)
   const rows = items
     .map((x) => {
@@ -590,29 +591,20 @@ function buildAutoClassifyPrompt(
       return `- id: "${x.id}" 标题: ${x.title || '（空）'} URL: ${x.url}${x.summary ? ` 页面摘要: ${x.summary}` : ''}${titleStatus}${descStatus}`
     })
     .join('\n')
-  const descRule = hasSummary
-    ? `
-3. 若某链接的「当前描述: 空」，请根据标题、URL 或页面摘要生成一句简短说明（一两句话，介绍该链接用途或内容），放在 description 字段；若「当前描述: 已有」则 description 留空字符串。`
-    : ''
-  const titleRule = hasSummary
-    ? `
-4. 若某链接的「当前标题: 需修正」（即标题为空或仅为域名），请根据页面摘要为该链接生成一个简短、准确的网站名称（如产品名、站点名，2～15 字），放在 title 字段；若「当前标题: 已有」则 title 留空字符串。`
-    : ''
-  const rule1 = hasExistingCategories
-    ? '1. 从现有分类中选一个最合适的（可参考分类说明），或若无合适分类则建议一个简短的新分类名（2～8 个字符）。'
-    : '1. 为每条链接建议一个简短的新分类名（2～8 个字符），所有条目的 isNew 均填 true，并填写 categoryDescription（该新分类的一句简短说明）。'
+  const descRule = hasSummary ? AUTO_CLASSIFY.descRule : ''
+  const titleRule = hasSummary ? AUTO_CLASSIFY.titleRule : ''
+  const rule1 = hasExistingCategories ? AUTO_CLASSIFY.rule1Existing : AUTO_CLASSIFY.rule1Empty
   const formatExample = hasExistingCategories
-    ? `[{"id":"书签id","category":"分类名","isNew":false${hasSummary ? ',"description":"可选","title":"可选"' : ''},"categoryDescription":"仅 isNew 为 true 时必填"}]`
-    : `[{"id":"书签id","category":"新分类名","isNew":true,"categoryDescription":"该分类的一句简短说明"${hasSummary ? ',"description":"可选","title":"可选"' : ''}]`
+    ? (hasSummary ? AUTO_CLASSIFY.formatExampleExistingWithSummary : AUTO_CLASSIFY.formatExampleExistingNoSummary)
+    : (hasSummary ? AUTO_CLASSIFY.formatExampleNewWithSummary : AUTO_CLASSIFY.formatExampleNewNoSummary)
   return `${catList}
 
-请对以下未分类书签进行归类。规则：
+${AUTO_CLASSIFY.intro}
 ${rule1}
-2. 仅输出一个 JSON 数组，不要其他说明。格式：${formatExample}
-   - 若选现有分类则 isNew 为 false，category 为现有分类名之一，不需 categoryDescription。
-   - 若建议新分类则 isNew 为 true，category 为新分类名，且必须填写 categoryDescription。${descRule}${titleRule}
-
-链接列表：
+${AUTO_CLASSIFY.rule2}${formatExample}
+${AUTO_CLASSIFY.rule2NoteExisting}
+${AUTO_CLASSIFY.rule2NoteNew}${descRule}${titleRule}
+${AUTO_CLASSIFY.linksIntro}
 ${rows}`
 }
 
@@ -907,23 +899,22 @@ function buildQuickAddPrompt(
 ): string {
   const hasExistingCategories = categories.length > 0
   const catList = hasExistingCategories
-    ? `现有分类（名称与说明）：\n${categories.map((c) => (c.description ? `- ${c.name}：${c.description}` : `- ${c.name}`)).join('\n')}`
-    : '当前尚无任何分类，请为每条链接建议一个合适的新分类名（2～8 个字符），所有条目的 isNew 均应为 true。'
-  const hasSummary = items.some((x) => x.summary)
+    ? `${QUICK_ADD.catListExistingPrefix}\n${categories.map((c) => (c.description ? `- ${c.name}：${c.description}` : `- ${c.name}`)).join('\n')}`
+    : QUICK_ADD.catListEmpty
   const rows = items
     .map((x) => `- URL: ${x.url} 标题: ${x.title}${x.summary ? ` 页面摘要: ${x.summary}` : ''}`)
     .join('\n')
+  const rule1 = hasExistingCategories ? QUICK_ADD.rule1Existing : QUICK_ADD.rule1Empty
   return `${catList}
 
-我要添加以下网址到书签收藏中，请为每条链接进行归类并生成信息。规则：
-1. ${hasExistingCategories ? '优先从现有分类中选择最合适的；若无合适分类则建议一个简短新分类名（2～8 字符）。' : '为每条链接建议一个简短新分类名（2～8 字符），isNew 均为 true。'}
-2. 为每条链接生成一个准确的标题（产品名/站点名，2～15 字）和一句简短描述（介绍用途或内容）。
-3. 仅输出一个 JSON 数组，不要其他说明。格式：
-[{"url":"链接URL","title":"生成的标题","description":"简短描述","category":"分类名","isNew":false,"categoryDescription":"仅 isNew 为 true 时必填，该新分类的一句简短说明"}]
-   - 若选现有分类则 isNew 为 false，不需 categoryDescription。
-   - 若建议新分类则 isNew 为 true，必须填写 categoryDescription。
-
-链接列表：
+${QUICK_ADD.intro}
+${rule1}
+${QUICK_ADD.rule2}
+${QUICK_ADD.rule3}
+${QUICK_ADD.formatExample}
+${QUICK_ADD.rule3NoteExisting}
+${QUICK_ADD.rule3NoteNew}
+${QUICK_ADD.linksIntro}
 ${rows}`
 }
 

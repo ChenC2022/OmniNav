@@ -1,6 +1,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { get12StaticQuotes, getRandomQuote } from '@/data/quotes'
 import { apiFetch } from '@/utils/api'
+import { PROMPT_QUOTE } from '@/constants/prompts'
 
 const QUOTE_COUNT = 12
 const ROTATE_INTERVAL_MS = 5 * 60 * 1000 // 5 分钟
@@ -12,8 +13,6 @@ const quoteTimerId = ref<ReturnType<typeof setInterval> | null>(null)
 let initialized = false
 
 const displayQuote = computed(() => quoteList.value[quoteIndex.value] ?? '')
-
-const QUOTE_PROMPT = `请随机生成 12 句简短的中文励志语或格言，用于个人首页轮播展示。每句单独一行，共 12 行；不要编号、不要引号、不要多余解释。`
 
 function parseQuotesFromResponse(text: string): string[] {
     const lines = text
@@ -36,7 +35,7 @@ async function fetchQuotesFromAI() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                messages: [{ role: 'user', content: QUOTE_PROMPT }],
+                messages: [{ role: 'user', content: PROMPT_QUOTE }],
             }),
         })
         const data = await res.json().catch(() => ({}))

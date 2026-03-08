@@ -1,5 +1,22 @@
 # 更新日志
 
+## [0.2.6] - 2026-03-08
+
+### 变更
+
+- **AI 提示词统一配置**：所有发给大模型的提示词集中到 `src/constants/prompts.ts` 中管理。
+  - 固定文案：首页励志语（`PROMPT_QUOTE`）、设置页连接测试（`PROMPT_TEST_CONNECTION`）。
+  - 模板函数：分类描述生成（`buildCategoryDescriptionPrompt`）、书签信息建议（`buildBookmarkSuggestionPrompt`）。
+  - 片段配置：未分类批量归类（`AUTO_CLASSIFY`）、快速添加批量（`QUICK_ADD`），由 Home 页组装。
+  - 使用处改为从该模块引用，便于后续修改文案或做多语言扩展。
+
+### 新增
+
+- **提示词校验脚本**：`scripts/verify-prompts.ts`，用于校验所有提示词导出与构建逻辑（运行：`npx tsx scripts/verify-prompts.ts`）。
+- **测试清单**：`docs/TEST_PROMPTS_AFTER_REFACTOR.md`，列出提示词相关功能的浏览器测试步骤。
+
+---
+
 ## [0.2.5] - 2026-03-08
 
 ### 新增
