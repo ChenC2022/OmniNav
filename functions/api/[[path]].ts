@@ -235,16 +235,95 @@ app.get('/weather', async (c) => {
   if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
     return c.json({ ok: false, error: 'Invalid lat/lon' }, 400)
   }
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&timezone=auto`
+
+  const TTL_SECONDS = 15 * 60
+  const latKey = Number(latitude.toFixed(3))
+  const lonKey = Number(longitude.toFixed(3))
+  const cacheKeyUrl = new URL(c.req.url)
+  cacheKeyUrl.searchParams.set('lat', String(latKey))
+  cacheKeyUrl.searchParams.set('lon', String(lonKey))
+  const cacheKey = new Request(cacheKeyUrl.toString(), { method: 'GET' })
+
+  // 1) Edge Cache API
+  try {
+    const cached = await caches.default.match(cacheKey)
+    if (cached) return cached
+  } catch {
+    /* ignore cache errors */
+  }
+
+  // 2) KV 缓存（可选，bindings 不存在时跳过）
+  const kv = c.env.KV_OMNINAV
+  const kvKey = `weather:${latKey}:${lonKey}`
+  if (kv) {
+    try {
+      const cachedJson = await kv.get(kvKey, 'text')
+      if (cachedJson) {
+        const res = new Response(cachedJson, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': `public, max-age=0, s-maxage=${TTL_SECONDS}`,
+          },
+        })
+        try { await caches.default.put(cacheKey, res.clone()) } catch { /* ignore */ }
+        return res
+      }
+    } catch {
+      /* ignore kv errors */
+    }
+  }
+
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latKey}&longitude=${lonKey}&current=temperature_2m,weather_code&timezone=auto`
+
+  function mapWeather(code: number | null): { text: string; icon: string } {
+    if (code == null || Number.isNaN(code)) return { text: '未知', icon: 'help' }
+    // Open-Meteo WMO weather codes (subset)
+    if (code === 0) return { text: '晴', icon: 'sunny' }
+    if (code === 1) return { text: '大部晴朗', icon: 'partly_cloudy_day' }
+    if (code === 2) return { text: '多云', icon: 'cloud' }
+    if (code === 3) return { text: '阴', icon: 'cloud' }
+    if (code === 45 || code === 48) return { text: '雾', icon: 'foggy' }
+    if ([51, 53, 55].includes(code)) return { text: '毛毛雨', icon: 'rainy' }
+    if ([56, 57].includes(code)) return { text: '冻雨', icon: 'ac_unit' }
+    if ([61, 63, 65].includes(code)) return { text: '雨', icon: 'rainy' }
+    if ([66, 67].includes(code)) return { text: '冻雨', icon: 'ac_unit' }
+    if ([71, 73, 75].includes(code)) return { text: '雪', icon: 'weather_snowy' }
+    if (code === 77) return { text: '雪粒', icon: 'weather_snowy' }
+    if ([80, 81, 82].includes(code)) return { text: '阵雨', icon: 'rainy' }
+    if ([85, 86].includes(code)) return { text: '阵雪', icon: 'weather_snowy' }
+    if (code === 95) return { text: '雷暴', icon: 'thunderstorm' }
+    if (code === 96 || code === 99) return { text: '雷暴冰雹', icon: 'thunderstorm' }
+    return { text: '多云', icon: 'cloud' }
+  }
+
   try {
     const res = await fetch(url, { headers: { 'User-Agent': 'OmniNav/1' } })
     if (!res.ok) return c.json({ ok: false, error: 'Weather fetch failed' }, 502)
     const data = await res.json() as { current?: { temperature_2m?: number; weather_code?: number } }
-    return c.json({
+    const temp = data.current?.temperature_2m ?? null
+    const code = data.current?.weather_code ?? null
+    const mapped = mapWeather(typeof code === 'number' ? code : null)
+    const body = JSON.stringify({
       ok: true,
-      temp: data.current?.temperature_2m ?? null,
-      code: data.current?.weather_code ?? null,
+      temp,
+      code,
+      text: mapped.text,
+      icon: mapped.icon,
+      source: 'open-meteo',
+      cachedForSeconds: TTL_SECONDS,
+      at: new Date().toISOString(),
     })
+    const out = new Response(body, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': `public, max-age=0, s-maxage=${TTL_SECONDS}`,
+      },
+    })
+    if (kv) {
+      kv.put(kvKey, body, { expirationTtl: TTL_SECONDS }).catch(() => {})
+    }
+    try { await caches.default.put(cacheKey, out.clone()) } catch { /* ignore */ }
+    return out
   } catch (e) {
     return c.json({ ok: false, error: String(e) }, 502)
   }

@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, inject } from 'vue'
+import { ref, computed, onMounted, watch, inject } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 
 const settings = useSettingsStore()
 const setHeaderCityName = inject<(name: string) => void>('setHeaderCityName')
 const temp = ref<number | null>(null)
+const condition = ref<string>('')
+const icon = ref<string>('')
 const loading = ref(true)
 const error = ref(false)
+
+const tempText = computed(() => (temp.value == null ? '' : temp.value.toFixed(1)))
 
 function setCity(name: string) {
   setHeaderCityName?.(name)
@@ -18,8 +22,14 @@ async function fetchWeather(lat: number, lon: number) {
   try {
     const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`)
     const json = await res.json().catch(() => ({}))
-    if (json.ok && json.temp != null) temp.value = Math.round(json.temp)
-    else error.value = true
+    if (json.ok && json.temp != null) {
+      const t = Number(json.temp)
+      temp.value = Number.isFinite(t) ? Math.round(t * 10) / 10 : null
+      condition.value = typeof json.text === 'string' ? json.text : ''
+      icon.value = typeof json.icon === 'string' ? json.icon : ''
+    } else {
+      error.value = true
+    }
   } catch {
     error.value = true
   } finally {
@@ -101,5 +111,9 @@ watch(
 <template>
   <span v-if="loading" class="text-sm text-slate-400 dark-text-94">天气…</span>
   <span v-else-if="error" class="text-sm text-slate-400 dark-text-94" title="获取失败">天气 --</span>
-  <span v-else class="text-sm font-medium text-slate-700 dark-text-94">{{ temp }}°C</span>
+  <span v-else class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700 dark-text-94">
+    <span v-if="icon" class="material-symbols-outlined text-[18px]" aria-hidden="true">{{ icon }}</span>
+    <span v-if="condition" class="text-slate-500 dark-text-94">{{ condition }}</span>
+    <span>{{ tempText }}°C</span>
+  </span>
 </template>
