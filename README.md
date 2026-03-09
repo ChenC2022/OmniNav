@@ -5,6 +5,7 @@
 **版本**：v0.2.10
 
 ---
+<img width="2160" height="1238" alt="image" src="https://github.com/user-attachments/assets/d5fcd0eb-b394-4552-8694-7f1d7f139a3b" />
 
 ## 功能与特点
 
