@@ -6,6 +6,8 @@ export const useUiStore = defineStore('ui', () => {
   const drawerOpen = ref(false)
   /** 为 true 时 SearchBar 聚焦并进入书签模式（@），用于 ⌘K 等触发 */
   const triggerBookmarkSearch = ref(false)
+  /** 为 true 时显示顶部「快速添加」浮层（由首页消费） */
+  const quickAddModalOpen = ref(false)
   const theme = ref<ThemeMode>('system')
   const isEditLayout = ref(false)
 
@@ -24,6 +26,10 @@ export const useUiStore = defineStore('ui', () => {
     triggerBookmarkSearch.value = value
   }
 
+  function setQuickAddModalOpen(value: boolean) {
+    quickAddModalOpen.value = value
+  }
+
   function setTheme(mode: ThemeMode) {
     theme.value = mode
   }
@@ -39,6 +45,8 @@ export const useUiStore = defineStore('ui', () => {
     drawerOpen,
     triggerBookmarkSearch,
     setTriggerBookmarkSearch,
+    quickAddModalOpen,
+    setQuickAddModalOpen,
     theme,
     effectiveTheme,
     toggleDrawer,

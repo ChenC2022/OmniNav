@@ -76,7 +76,7 @@ const bookmarksInCategory = computed(() =>
     .sort((a, b) => a.order - b.order)
 )
 
-/** 允许删除分类（删除时书签会移入未分类，不再因常用书签而禁止） */
+/** 允许删除分类（删除时书签会移入未分类，不再因置顶书签而禁止） */
 const canDeleteCategory = true
 
 const list = ref<Bookmark[]>([])
@@ -271,7 +271,7 @@ onClickOutside(contextMenuRef, closeContextMenu)
 const settingsMenuOpen = ref(false)
 const settingsMenuRef = ref<HTMLElement | null>(null)
 const settingsTriggerRef = ref<HTMLElement | null>(null)
-const settingsMenuPos = ref({ top: 0, left: 0 })
+const settingsMenuPos = ref<{ top: number; right: number }>({ top: 0, right: 0 })
 onClickOutside(settingsMenuRef, closeSettingsMenu, { ignore: [settingsTriggerRef] })
 
 function toggleSettingsMenu() {
@@ -627,7 +627,7 @@ defineExpose({ openAdd })
           class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="handleContextTogglePinned(contextMenuBookmark)"
         >
-          {{ contextMenuBookmark && pinnedStore.ids.includes(contextMenuBookmark.id) ? '从常用移除' : '添加到常用' }}
+          {{ contextMenuBookmark && pinnedStore.ids.includes(contextMenuBookmark.id) ? '从置顶移除' : '添加到置顶' }}
         </button>
         <button
           v-if="showMoveToUncategorized"

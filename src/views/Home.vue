@@ -19,7 +19,7 @@ import { parseBookmarkHtml } from '@/utils/parseBookmarkHtml'
 import { apiFetch } from '@/utils/api'
 import { AUTO_CLASSIFY, QUICK_ADD } from '@/constants/prompts'
 
-/** 用于存放「仅常用区」独立链接的分类名，不存在时会自动创建；在首页作为独立区域「未分类」展示 */
+/** 用于存放「仅置顶区」独立链接的分类名，不存在时会自动创建；在首页作为独立区域「未分类」展示 */
 const PINNED_ONLY_CATEGORY_NAME = '未分类'
 /** 旧名称，兼容已有数据并会迁移为「未分类」 */
 const PINNED_ONLY_CATEGORY_NAMES_LEGACY = ['未分类链接', '快捷链接']
@@ -33,6 +33,20 @@ const savePinned = inject<() => Promise<void>>('savePinned')
 // Quote data from shared composable
 import { useQuotes } from '@/composables/useQuotes'
 const { displayQuote, nextQuote } = useQuotes()
+/** 在励志语位置临时显示提示，随后恢复 */
+const quoteAreaMessage = ref('')
+let quoteAreaMessageTimer: ReturnType<typeof setTimeout> | null = null
+function setQuoteAreaMessage(message: string) {
+  if (quoteAreaMessageTimer) clearTimeout(quoteAreaMessageTimer)
+  quoteAreaMessage.value = message
+  quoteAreaMessageTimer = setTimeout(() => {
+    quoteAreaMessage.value = ''
+    quoteAreaMessageTimer = null
+  }, 5000)
+}
+onUnmounted(() => {
+  if (quoteAreaMessageTimer) clearTimeout(quoteAreaMessageTimer)
+})
 const pinnedStore = usePinnedStore()
 const ui = useUiStore() // Added
 const { theme, isEditLayout } = storeToRefs(ui) // Modified
@@ -77,7 +91,7 @@ const categoriesForGrid = computed(() =>
 const pinnedList = ref<Bookmark[]>([])
 watch(pinnedBookmarks, (v) => { pinnedList.value = [...v] }, { immediate: true })
 
-/** 编辑布局：开启后常用区卡片才可拖拽排序，且支持从分类拖入常用 */
+/** 编辑布局：开启后置顶区卡片才可拖拽排序，且支持从分类拖入置顶 */
 // const isEditLayout = ref(false) // Removed, now from useUiStore
 
 /** 分类区块标题栏：设置菜单（检查链接 / 新建分类） */
@@ -89,7 +103,7 @@ function closeCategorySectionSettings() {
 }
 onClickOutside(categorySectionSettingsRef, closeCategorySectionSettings, { ignore: [categorySectionSettingsTriggerRef] })
 
-/** 可添加到常用的书签（未在常用区的书签，数量不设上限） */
+/** 可添加到置顶的书签（未在置顶区的书签，数量不设上限） */
 const addableBookmarks = computed(() => {
   const pinnedSet = new Set(pinnedStore.ids)
   return bookmarksStore.items
@@ -127,7 +141,7 @@ function closeAddToPinned() {
   newLinkUrl.value = ''
 }
 
-/** 获取或创建用于「仅常用」独立链接的分类；若存在旧名称则迁移为「未分类」 */
+/** 获取或创建用于「仅置顶」独立链接的分类；若存在旧名称则迁移为「未分类」 */
 function getOrCreatePinnedOnlyCategory(): string {
   let cat = categoriesStore.items.find((c) => c.name === PINNED_ONLY_CATEGORY_NAME)
   if (cat) return cat.id
@@ -700,7 +714,7 @@ async function confirmAutoClassifyApply() {
   closeAutoClassifyResultModal()
 }
 
-// 常用区书签右键菜单
+// 置顶区书签右键菜单
 const pinnedMenuOpen = ref(false)
 const pinnedMenuPos = ref({ x: 0, y: 0 })
 const pinnedMenuBookmark = ref<Bookmark | null>(null)
@@ -790,7 +804,7 @@ async function handleQuickAddSubmit(payload: { urls: string[]; deepAnalysis: boo
   const existingUrls = new Set(bookmarksStore.items.map((b) => b.url))
   const newUrls = urls.filter((u) => !existingUrls.has(u))
   if (newUrls.length === 0) {
-    quickAddResultMessage.value = '所有链接已存在于书签中，无需重复添加'
+    setQuoteAreaMessage('所有链接已存在于书签中，无需重复添加')
     return
   }
 
@@ -859,17 +873,18 @@ async function handleQuickAddSubmit(payload: { urls: string[]; deepAnalysis: boo
     if (ac.signal.aborted) return
     if (!res.ok) {
       const code = (data as { code?: string })?.code
-      quickAddResultMessage.value =
+      const msg =
         code === 'AI_NOT_CONFIGURED'
           ? 'AI 未配置，请到设置中填写 Base URL、Model 与 API Key'
           : (data as { error?: string })?.error ?? 'AI 请求失败'
+      setQuoteAreaMessage(msg)
       return
     }
 
     const rawText = (data as { message?: string })?.message ?? ''
     const parsed = parseQuickAddResponse(rawText, newUrls)
     if (!parsed.length) {
-      quickAddResultMessage.value = '未能解析 AI 返回的归类建议，请重试'
+      setQuoteAreaMessage('未能解析 AI 返回的归类建议，请重试')
       return
     }
 
@@ -885,12 +900,22 @@ async function handleQuickAddSubmit(payload: { urls: string[]; deepAnalysis: boo
     quickAddResultOpen.value = true
   } catch (e) {
     if ((e as { name?: string })?.name === 'AbortError') return
-    quickAddResultMessage.value = e instanceof Error ? e.message : '分析失败'
+    setQuoteAreaMessage(e instanceof Error ? e.message : '分析失败')
   } finally {
     quickAddLoading.value = false
     quickAddProgressText.value = ''
     quickAddAbortRef.value = null
   }
+}
+
+function closeQuickAddModal() {
+  ui.setQuickAddModalOpen(false)
+}
+
+/** 从顶部「快速添加」浮层提交：复用添加逻辑并关闭浮层 */
+function onQuickAddModalSubmit(payload: { urls: string[]; deepAnalysis: boolean }) {
+  handleQuickAddSubmit(payload)
+  closeQuickAddModal()
 }
 
 function buildQuickAddPrompt(
@@ -1018,7 +1043,8 @@ async function confirmQuickAddApply() {
   if (addedCount > 0) await saveBookmarks?.()
 
   const newCatCount = newNamesToCreate.size
-  quickAddResultMessage.value = `已添加 ${addedCount} 个书签${newCatCount > 0 ? `，创建了 ${newCatCount} 个新分类` : ''}`
+  const msg = `已添加 ${addedCount} 个书签${newCatCount > 0 ? `，创建了 ${newCatCount} 个新分类` : ''}`
+  setQuoteAreaMessage(msg)
   closeQuickAddResult()
 }
 
@@ -1035,37 +1061,36 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
 
 <template>
   <div class="home w-full max-w-[1920px] mx-auto px-0">
-    <!-- 移动端搜索栏：仅在小屏下显示（桌面端已在顶部栏内）；竖屏下 sticky 吸顶不随滚动 -->
-    <section
-      class="search-in-page mb-6 sm:hidden w-full flex justify-center sticky top-0 z-20 -mt-4 sm:mt-0 py-2 -mx-3 px-2 sm:mx-0 sm:px-0 bg-[#f0f4ff]/95 dark:bg-[#0d1321]/95 backdrop-blur-md"
-    >
-      <div class="w-full min-w-0 sm:max-w-2xl sm:px-1">
-        <SearchBar full-width />
-      </div>
-    </section>
-
     <section class="big-icons mb-8 sm:mb-12">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-5">
         <div class="flex items-center gap-3 min-w-0 flex-1">
           <h2 class="section-title text-lg font-bold flex items-center gap-2.5 text-slate-800 dark-text-94 shrink-0">
             <span class="material-symbols-outlined text-indigo-500 dark:text-indigo-400 text-[22px]">push_pin</span>
-            常用
+            置顶
           </h2>
-          <!-- 励志语：与常用同行展示 -->
+          <!-- 励志语：与置顶同行展示；快速添加成功提示会在此显示 5 秒 -->
           <button
-            v-if="displayQuote"
+            v-if="quoteAreaMessage || displayQuote"
             type="button"
-            class="hidden sm:flex items-center justify-center gap-1.5 min-w-0 flex-1 rounded-lg px-2.5 py-1 hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors cursor-pointer"
-            title="点击切换下一条"
-            @click="nextQuote()"
+            class="hidden sm:flex items-center justify-center gap-1.5 min-w-0 flex-1 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
+            :class="quoteAreaMessage ? '' : 'hover:bg-slate-100/60 dark:hover:bg-white/5'"
+            :title="quoteAreaMessage ? '' : '点击切换下一条'"
+            @click="quoteAreaMessage ? undefined : nextQuote()"
           >
-            <span class="text-base shrink-0">✨</span>
-            <span class="text-base text-slate-400 dark:text-slate-500 italic truncate min-w-0">{{ displayQuote }}</span>
-            <span class="text-base shrink-0">✨</span>
+            <span v-if="!quoteAreaMessage" class="text-base shrink-0">✨</span>
+            <span
+              class="text-base truncate min-w-0"
+              :class="quoteAreaMessage
+                ? (quoteAreaMessage.startsWith('已添加') ? 'text-green-600 dark:text-green-400 font-medium' : 'text-slate-500 dark:text-slate-400')
+                : 'text-slate-400 dark:text-slate-500 italic'"
+            >
+              {{ quoteAreaMessage || displayQuote }}
+            </span>
+            <span v-if="!quoteAreaMessage" class="text-base shrink-0">✨</span>
           </button>
         </div>
       </div>
-      <!-- 常用区块容器：与未分类等区域块形态一致，块内保留大图标网格；最多展示约 16 个可见，超出滚动；深色模式使用专用配色 -->
+      <!-- 置顶区块容器：与未分类等区域块形态一致，块内保留大图标网格；最多展示约 16 个可见，超出滚动；深色模式使用专用配色 -->
       <div class="pinned-section rounded-2xl border border-slate-200/60 dark:border-white/10 bg-white/50 p-4 md:p-5">
         <div class="max-h-[14rem] overflow-y-auto overflow-x-hidden min-h-0 custom-scrollbar">
           <div class="grid grid-cols-[repeat(auto-fill,minmax(min(100%,100px),1fr))] gap-3 md:gap-4">
@@ -1101,16 +1126,15 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         </div>
       </div>
       <p v-if="pinnedBookmarks.length === 0" class="text-sm text-slate-500 dark:text-white/90 mt-4">
-        暂无常用，可通过分类内书签右键「添加到常用」添加；开启「拖动书签」后可拖拽调整顺序
+        暂无置顶，可通过分类内书签右键「添加到置顶」添加；开启「拖动书签」后可拖拽调整顺序
       </p>
     </section>
 
-    <!-- AI 快速添加栏 -->
-    <section class="quick-add-section mb-8 sm:mb-10">
-      <QuickPasteBar @submit="handleQuickAddSubmit" />
-      <p v-if="quickAddResultMessage" class="mt-3 text-sm" :class="quickAddResultMessage.startsWith('已添加') ? 'text-green-600 dark:text-green-400' : 'text-slate-600 dark:text-slate-400'">
-        {{ quickAddResultMessage }}
-      </p>
+    <!-- 搜索栏：置顶下方、分类上方 -->
+    <section class="mb-6 sm:mb-8 w-full flex justify-center">
+      <div class="w-full min-w-0 max-w-2xl px-2 sm:px-0">
+        <SearchBar full-width />
+      </div>
     </section>
 
     <section class="categories">
@@ -1402,7 +1426,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
       </Transition>
     </Teleport>
 
-    <!-- 常用区「添加」弹窗：从书签列表选择添加到常用 -->
+    <!-- 置顶区「添加」弹窗：从书签列表选择添加到置顶 -->
     <Teleport to="body">
       <Transition name="modal-fade">
         <div
@@ -1415,7 +1439,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
             class="add-to-pinned-modal modal-fade-panel w-full max-w-md max-h-[70vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-200 dark:border-white/20 flex flex-col bg-white/95 dark:bg-white/5 backdrop-blur-xl"
           >
           <div class="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0">
-            <span class="font-semibold text-slate-800 dark-text-94">添加到常用</span>
+            <span class="font-semibold text-slate-800 dark-text-94">添加到置顶</span>
             <button type="button" class="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 dark-text-94 transition-colors" aria-label="关闭" @click="closeAddToPinned">
               <span class="material-symbols-outlined">close</span>
             </button>
@@ -1532,7 +1556,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
             
             <div class="p-4 bg-red-50/50 dark:bg-red-500/10 border-b border-red-100 dark:border-red-500/20 shrink-0">
               <p class="text-sm text-red-600 dark:text-red-400">
-                请确认要清理的链接。清理后将从分类中移除（含常用置顶记录）。
+                请确认要清理的链接。清理后将从分类中移除（含置顶记录）。
               </p>
             </div>
 
@@ -1582,7 +1606,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
       </Transition>
     </Teleport>
 
-    <!-- 常用区书签右键菜单 -->
+    <!-- 置顶区书签右键菜单 -->
     <Teleport to="body">
       <Transition name="menu-pop">
         <div
@@ -1604,7 +1628,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           class="w-full text-left px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
           @click="removeFromPinned(pinnedMenuBookmark)"
         >
-          从常用移除
+          从置顶移除
         </button>
         </div>
       </Transition>
@@ -1708,6 +1732,40 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
                   确认添加
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- 顶部「快速添加」浮层（由 header 按钮打开） -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="ui.quickAddModalOpen"
+          class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 dark:bg-black/50 backdrop-blur-sm modal-fade-overlay"
+          @click.self="closeQuickAddModal"
+        >
+          <div
+            class="modal-fade-panel w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-white/20 flex flex-col bg-white/95 dark:bg-white/5 backdrop-blur-xl overflow-hidden"
+            @click.stop
+          >
+            <div class="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0">
+              <span class="font-semibold text-slate-800 dark-text-94 flex items-center gap-2">
+                <span class="material-symbols-outlined text-indigo-500 text-[20px]">add_link</span>
+                快速添加
+              </span>
+              <button
+                type="button"
+                class="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 dark-text-94 transition-colors"
+                aria-label="关闭"
+                @click="closeQuickAddModal"
+              >
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div class="p-4">
+              <QuickPasteBar @submit="onQuickAddModalSubmit" />
             </div>
           </div>
         </div>

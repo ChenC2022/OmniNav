@@ -234,7 +234,7 @@ function onKeydown(e: KeyboardEvent) {
     <!-- 仅表单+下拉算“内部”，遮罩在外部以便点击遮罩触发 onClickOutside -->
     <div ref="searchZoneRef" class="relative flex flex-1 min-w-0 w-full">
       <form
-        class="search-bar-form relative flex flex-1 rounded-xl border border-slate-200/80 dark:border-white/20 bg-white/95 dark:bg-white/5 overflow-visible h-[2.25rem] sm:h-[2.5rem] focus-within:ring-2 focus-within:ring-indigo-400/50 focus-within:border-indigo-400/50 transition-all duration-200 flex items-center pl-2 sm:pl-3"
+        class="search-bar-form relative flex flex-1 rounded-xl border border-slate-200/80 dark:border-white/20 bg-white/95 dark:bg-white/5 overflow-visible h-[2.5rem] sm:h-[3rem] focus-within:ring-2 focus-within:ring-indigo-400/50 focus-within:border-indigo-400/50 transition-all duration-200 flex items-center pl-2 sm:pl-3"
         @submit.prevent="submit"
         @keydown="onKeydown"
       >
@@ -325,8 +325,8 @@ function onKeydown(e: KeyboardEvent) {
             type="button"
             class="shrink-0 p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-200/50 dark:hover:bg-white/10 hover:text-amber-500 dark:hover:text-amber-400 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
             :class="pinnedStore.ids.includes(b.id) ? 'opacity-100 text-amber-500 dark:text-amber-400' : ''"
-            :title="pinnedStore.ids.includes(b.id) ? '从常用移除' : '添加到常用'"
-            aria-label="添加到常用"
+            :title="pinnedStore.ids.includes(b.id) ? '从置顶移除' : '添加到置顶'"
+            aria-label="添加到置顶"
             @click.stop="handleTogglePinned(b)"
           >
             <span class="material-symbols-outlined text-lg block" :class="pinnedStore.ids.includes(b.id) ? 'filled' : ''">push_pin</span>

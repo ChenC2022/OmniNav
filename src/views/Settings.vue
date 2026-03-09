@@ -345,9 +345,35 @@ function cancelImport() {
 // ─── 清空数据 ───
 const clearAllConfirm = ref(false)
 const clearAllLoading = ref(false)
+const clearAllPassword = ref('')
+const clearAllPasswordError = ref('')
+
+async function verifyPasswordForDangerAction(password: string): Promise<boolean> {
+  // 复用登录接口做校验：成功代表密码正确（并会刷新 session cookie）
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ password }),
+  })
+  const data = await res.json().catch(() => ({} as { ok?: boolean }))
+  return Boolean(res.ok && (data as { ok?: boolean }).ok)
+}
+
 async function clearAllData() {
+  clearAllPasswordError.value = ''
+  const pwd = clearAllPassword.value.trim()
+  if (!pwd) {
+    clearAllPasswordError.value = '请输入当前登录密码'
+    return
+  }
   clearAllLoading.value = true
   try {
+    const ok = await verifyPasswordForDangerAction(pwd)
+    if (!ok) {
+      clearAllPasswordError.value = '密码错误'
+      return
+    }
     categoriesStore.setCategories([])
     bookmarksStore.setBookmarks([])
     pinnedStore.setIds([])
@@ -355,6 +381,7 @@ async function clearAllData() {
     await saveBookmarks?.()
     await savePinned?.()
     clearAllConfirm.value = false
+    clearAllPassword.value = ''
     window.location.reload()
   } catch (e) {
     importError.value = e instanceof Error ? e.message : '清空失败'
@@ -1096,7 +1123,7 @@ const navItems = [
           <p class="font-mono text-primary">{{ appVersion }}</p>
           <p class="pt-2 font-semibold">主要功能</p>
           <ul class="list-disc list-inside space-y-1.5 pl-1 opacity-90">
-            <li><strong>常用区</strong>：置顶高频书签，无数量上限，编辑布局下拖拽排序</li>
+            <li><strong>置顶区</strong>：置顶高频书签，无数量上限，编辑布局下拖拽排序</li>
             <li><strong>分类管理</strong>：多分类卡片、私密分类（密码保护）、拖拽排序、分类说明（AI 可生成）</li>
             <li><strong>搜索</strong>：聚合搜索（网页 + 书签），多引擎切换，Tab 或点击「书签」切换书签搜索</li>
             <li><strong>AI 助手</strong>：右侧抽屉对话、未分类书签 AI 自动归类（支持深度分析）、励志语生成</li>
@@ -1205,7 +1232,7 @@ const navItems = [
           class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
           role="dialog"
           aria-modal="true"
-          @click.self="clearAllConfirm = false"
+          @click.self="clearAllConfirm = false; clearAllPassword = ''; clearAllPasswordError = ''"
         >
           <div
             class="settings-modal-card w-full max-w-sm rounded-xl bg-white dark:bg-slate-900 shadow-xl p-5 border border-slate-200 dark:border-white/20"
@@ -1215,9 +1242,34 @@ const navItems = [
             <p class="text-sm text-slate-600 dark-text-94 mb-4">
               将清空所有书签、分类与置顶，并同步到云端。清空后页面会刷新，仅保留「未分类」区域。此操作不可撤销，是否继续？
             </p>
+            <div class="mb-3">
+              <label class="block text-sm font-semibold mb-2 text-slate-700 dark-text-94">当前登录密码</label>
+              <input
+                v-model="clearAllPassword"
+                type="password"
+                autocomplete="current-password"
+                class="settings-input dark-text-94 w-full px-4 py-3 bg-slate-50 border border-slate-200 dark:border-white/20 rounded-xl focus:ring-primary focus:border-primary text-slate-900 dark:text-white"
+                placeholder="请输入密码以确认清空"
+                :disabled="clearAllLoading"
+              />
+              <p v-if="clearAllPasswordError" class="mt-2 text-sm text-red-500 dark:text-red-400">{{ clearAllPasswordError }}</p>
+            </div>
             <div class="flex justify-end gap-2">
-              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10" @click="clearAllConfirm = false">取消</button>
-              <button type="button" class="px-3 py-1.5 rounded-xl bg-red-600 text-white font-medium hover:bg-red-500" :disabled="clearAllLoading" @click="clearAllData">清空</button>
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10"
+                @click="clearAllConfirm = false; clearAllPassword = ''; clearAllPasswordError = ''"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-xl bg-red-600 text-white font-medium hover:bg-red-500 disabled:opacity-50"
+                :disabled="clearAllLoading"
+                @click="clearAllData"
+              >
+                {{ clearAllLoading ? '校验中…' : '清空' }}
+              </button>
             </div>
           </div>
         </div>

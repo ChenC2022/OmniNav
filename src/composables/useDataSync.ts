@@ -77,7 +77,7 @@ export function useDataSync() {
       put(API.categories, [...categoriesList, newCat]).catch(() => {})
     }
 
-    // 仅在书签加载成功时清理常用中的失效 ID，避免书签请求失败时误把常用清空并写回服务器导致刷新后常用消失
+    // 仅在书签加载成功时清理置顶中的失效 ID，避免书签请求失败时误把置顶清空并写回服务器导致刷新后置顶消失
     if (bRes.ok) cleanOrphanedPinned()
     } finally {
       syncStore.setIdle()

@@ -4,7 +4,6 @@ import { RouterLink, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import ClockWidget from './ClockWidget.vue'
 import WeatherWidget from './WeatherWidget.vue'
-import SearchBar from '@/components/search/SearchBar.vue'
 import { useUiStore } from '@/stores/ui'
 import { apiFetch } from '@/utils/api'
 
@@ -40,6 +39,11 @@ async function logout() {
   await apiFetch('/api/auth/logout', { method: 'POST' })
   router.push('/login')
 }
+
+function openQuickAdd() {
+  ui.setQuickAddModalOpen(true)
+  if (router.currentRoute.value.path !== '/') router.push('/')
+}
 </script>
 
 <template>
@@ -57,9 +61,6 @@ async function logout() {
         <span v-if="headerCityName" class="text-sm font-medium text-slate-500 dark-text-94 shrink-0 truncate hidden md:inline">{{ headerCityName }}</span>
         <ClockWidget />
         <WeatherWidget />
-      </div>
-      <div class="header-center flex-1 min-w-0 flex items-center justify-center max-w-2xl min-w-0 px-2 hidden sm:flex">
-        <SearchBar />
       </div>
       <div class="header-right flex items-center shrink-0">
         <!-- 拖动开关：带左右垂直分隔线 -->
@@ -95,6 +96,15 @@ async function logout() {
             @click="cycleThemeAndPersist"
           >
             <span class="material-symbols-outlined text-[22px]">{{ themeIcon }}</span>
+          </button>
+          <button
+            type="button"
+            class="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer shrink-0 bg-indigo-500 dark:bg-indigo-400 text-white hover:bg-indigo-600 dark:hover:bg-indigo-300 active:scale-[0.98]"
+            title="快速添加"
+            aria-label="快速添加"
+            @click="openQuickAdd"
+          >
+            <span class="material-symbols-outlined text-[22px]">add_link</span>
           </button>
           <button
             type="button"

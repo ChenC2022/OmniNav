@@ -46,7 +46,7 @@ html.dark .text-slate-600 {
   color: #94A3B8;
 }
 
-/* 深色模式：强制指定为 #94A3B8（OmniNav、时间、常用/分类标题、分类名称等） */
+/* 深色模式：强制指定为 #94A3B8（OmniNav、时间、置顶/分类标题、分类名称等） */
 html.dark .dark-text-94 {
   color: #94A3B8 !important;
 }
@@ -91,7 +91,7 @@ html.dark .search-mode-tag--bookmark:hover {
   color: #c7d2fe;
 }
 
-/* 深色模式：书签/常用区右键菜单、分类设置菜单（Teleport 到 body，强制深色底） */
+/* 深色模式：书签/置顶区右键菜单、分类设置菜单（Teleport 到 body，强制深色底） */
 html.dark .bookmark-context-menu,
 html.dark .menu-pop-root {
   background-color: #0f172a !important;
@@ -147,7 +147,7 @@ html.dark .search-dropdown-item:hover {
   background-color: #1e293b !important;
 }
 
-/* 深色模式：「添加到常用」弹窗与输入框与主题一致 */
+/* 深色模式：「添加到置顶」弹窗与输入框与主题一致 */
 html.dark .add-to-pinned-modal {
   background: rgba(255, 255, 255, 0.06) !important;
   background-color: rgba(255, 255, 255, 0.06) !important;
@@ -325,7 +325,7 @@ html.dark .glass-translucent {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
-/* 常用区卡片 hover：仅用背景色变化，不叠加额外 brightness */
+/* 置顶区卡片 hover：仅用背景色变化，不叠加额外 brightness */
 .pinned-section .pinned-card.card-hover {
   transition: transform 0.2s ease, filter 0.2s ease, background-color 0.2s ease;
 }
@@ -339,7 +339,7 @@ html.dark .glass-translucent {
   color: #0f172a !important;
 }
 
-/* 深色模式：常用区域专用配色，偏深色半透明与背景融合 */
+/* 深色模式：置顶区域专用配色，偏深色半透明与背景融合 */
 html.dark .pinned-section {
   background: rgba(15, 23, 42, 0.4);
   border-color: rgba(255, 255, 255, 0.08);
@@ -504,7 +504,7 @@ html.dark .toggle-track.is-on .toggle-thumb {
   opacity: 0;
 }
 
-/* 首页「添加到常用」弹窗：遮罩 + 面板缩放 */
+/* 首页「添加到置顶」弹窗：遮罩 + 面板缩放 */
 .modal-fade-enter-active,
 .modal-fade-leave-active {
   transition: opacity 0.2s ease-out;
