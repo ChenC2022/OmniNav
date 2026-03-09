@@ -1035,10 +1035,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
 
 <template>
   <div class="home w-full max-w-[1920px] mx-auto px-0">
-    <!-- 移动端搜索栏：仅在小屏下显示（桌面端已在顶部栏内） -->
-    <section class="search-in-page mb-6 sm:hidden w-full flex justify-center">
-      <div class="w-full max-w-2xl px-1">
-        <SearchBar />
+    <!-- 移动端搜索栏：仅在小屏下显示（桌面端已在顶部栏内）；竖屏下 sticky 吸顶不随滚动 -->
+    <section
+      class="search-in-page mb-6 sm:hidden w-full flex justify-center sticky top-0 z-20 -mt-4 sm:mt-0 py-2 -mx-3 px-2 sm:mx-0 sm:px-0 bg-[#f0f4ff]/95 dark:bg-[#0d1321]/95 backdrop-blur-md"
+    >
+      <div class="w-full min-w-0 sm:max-w-2xl sm:px-1">
+        <SearchBar full-width />
       </div>
     </section>
 

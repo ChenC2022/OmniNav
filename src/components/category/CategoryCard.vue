@@ -139,6 +139,45 @@ function toggleViewLevel() {
   saveCategories?.()
 }
 
+const BOOKMARK_DRAG_TYPE = 'text/bookmark-id'
+
+function onBookmarkDragStart(e: DragEvent, bookmark: Bookmark) {
+  if (!e.dataTransfer) return
+  e.dataTransfer.setData(BOOKMARK_DRAG_TYPE, bookmark.id)
+  e.dataTransfer.effectAllowed = 'move'
+}
+
+const isTitleDropTarget = ref(false)
+
+function onTitleDragOver(e: DragEvent) {
+  if (!props.editLayout) return
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+  isTitleDropTarget.value = true
+}
+
+function onTitleDragLeave() {
+  isTitleDropTarget.value = false
+}
+
+function clearTitleDropTarget() {
+  isTitleDropTarget.value = false
+}
+
+function onTitleDrop(e: DragEvent) {
+  isTitleDropTarget.value = false
+  e.preventDefault()
+  if (!props.editLayout) return
+  const id = e.dataTransfer?.getData(BOOKMARK_DRAG_TYPE)
+  if (!id) return
+  const bookmark = bookmarksStore.items.find((b) => b.id === id)
+  if (!bookmark || bookmark.categoryId === props.category.id) return
+  const currentInCategory = bookmarksInCategory.value
+  const newOrder = [bookmark, ...currentInCategory]
+  newOrder.forEach((b, i) => bookmarksStore.updateBookmark(b.id, { categoryId: props.category.id, order: i }))
+  saveBookmarks?.()
+}
+
 function onDragEnd() {
   list.value.forEach((b, i) => bookmarksStore.updateBookmark(b.id, { order: i }))
   saveBookmarks?.()
@@ -274,8 +313,14 @@ function onKeydown(e: KeyboardEvent) {
     settingsMenuOpen.value = false
   }
 }
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  window.addEventListener('dragend', clearTitleDropTarget)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('dragend', clearTitleDropTarget)
+})
 
 defineExpose({ openAdd })
 </script>
@@ -309,7 +354,7 @@ defineExpose({ openAdd })
         <p v-if="category.passwordHint" class="mt-4 text-[10px] text-slate-400 dark:text-white/70 uppercase tracking-tighter">提示：{{ category.passwordHint }}</p>
         <p v-if="unlockError" class="mt-2 text-xs text-red-500 dark:text-red-400">{{ unlockError }}</p>
       </div>
-      <div v-if="!hideTitle" class="flex items-center justify-between mb-6 opacity-20 pointer-events-none">
+      <div v-if="!hideTitle" class="flex items-center justify-between mb-0 opacity-20 pointer-events-none">
         <AppTooltip :content="category.description ?? undefined">
           <h3 class="font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
             <span class="material-symbols-outlined text-indigo-400 text-lg">lock</span>
@@ -421,11 +466,17 @@ defineExpose({ openAdd })
         </div>
       </Transition>
     </Teleport>
-    <!-- 非 hideTitle 时显示分类标题行：分类名与右侧三个按键同一 flex 行、垂直居中；点击分类名（私密未解锁时不可点）打开该分类全部书签浮层 -->
+    <!-- 非 hideTitle 时显示分类标题行：分类名与右侧三个按键同一 flex 行、垂直居中；点击分类名（私密未解锁时不可点）打开该分类全部书签浮层；编辑布局下可拖放书签到标题行，书签将插入本分类首位 -->
     <div
       v-if="!hideTitle"
-      class="flex items-center justify-between gap-2 pl-2 pr-2 min-h-9 min-w-0"
-      :class="viewLevel === 0 ? 'mb-2' : 'mb-6'"
+      class="flex items-center justify-between gap-2 pl-2 pr-2 min-h-9 min-w-0 rounded-lg transition-colors"
+      :class="[
+        viewLevel === 0 ? 'mb-0' : 'mb-0',
+        editLayout && isTitleDropTarget ? 'bg-indigo-500/15 dark:bg-indigo-400/15' : ''
+      ]"
+      @dragover="onTitleDragOver"
+      @dragleave="onTitleDragLeave"
+      @drop="onTitleDrop"
     >
       <AppTooltip
         :content="category.description ?? (canOpenBookmarksOverlay ? '点击查看本分类全部书签' : undefined)"
@@ -499,13 +550,13 @@ defineExpose({ openAdd })
         </div>
       </div>
     </div>
-    <!-- 书签网格：未分类（hideTitle）为自适应列数，分类卡片为 2 列；限制高度约 10 行，超出可滚动；未分类无书签时保持最小高度便于拖放落入；折叠为「仅标题」时内容区高度 1rem -->
+    <!-- 书签网格：未分类（hideTitle）为自适应列数，分类卡片为 2 列；限制高度约 10 行，超出可滚动；未分类无书签时保持最小高度便于拖放落入；折叠为「仅标题」时内容区高度为 0，与空分类一致 -->
     <div
       :class="[
         hideTitle ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,7rem),1fr))] gap-2' : '',
         'transition-all duration-300 ease-in-out min-h-0 custom-scrollbar',
         hideTitle && noAddInGrid ? 'min-h-[3rem]' : '',
-        viewLevel === 0 ? 'min-h-[1rem] max-h-[1rem] opacity-0 overflow-hidden invisible !mt-0 !mb-0' : '',
+        viewLevel === 0 ? 'min-h-0 max-h-0 opacity-0 overflow-hidden invisible !mt-0 !mb-0' : '',
         viewLevel === 1 ? 'max-h-[146px] overflow-y-auto' : '',
         viewLevel === 2 ? 'max-h-[512px] overflow-y-auto' : '',
         viewLevel === 3 ? 'max-h-none overflow-y-auto' : ''
@@ -528,6 +579,7 @@ defineExpose({ openAdd })
           <div
             class="flex items-center gap-1 min-w-0 flex-1 overflow-hidden p-2 rounded-xl hover:bg-slate-200/50 dark:hover:bg-white/10 dark:text-slate-300 dark:hover:text-white transition-colors cursor-context-menu"
             @contextmenu.prevent="(e) => openContextMenu(e, element)"
+            @dragstart="onBookmarkDragStart($event, element)"
           >
             <span
               v-if="editLayout"

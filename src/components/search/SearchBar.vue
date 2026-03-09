@@ -19,6 +19,14 @@ const pinnedStore = usePinnedStore()
 const persistSettings = inject<() => Promise<void>>('persistSettings')
 const savePinned = inject<() => Promise<void>>('savePinned')
 
+const props = withDefaults(
+  defineProps<{
+    /** 为 true 时占满容器宽度、无左右外边距（用于首页移动端搜索栏） */
+    fullWidth?: boolean
+  }>(),
+  { fullWidth: false }
+)
+
 const query = ref('')
 const showEngineDropdown = ref(false)
 const inputEl = ref<HTMLInputElement | null>(null)
@@ -196,7 +204,10 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="relative flex flex-1 min-w-0 w-full max-w-2xl mx-1 sm:mx-2 md:mx-8">
+  <div
+    class="relative flex flex-1 min-w-0 w-full"
+    :class="props.fullWidth ? 'max-w-none mx-0' : 'max-w-2xl mx-1 sm:mx-2 md:mx-8'"
+  >
     <form
       class="search-bar-form relative flex flex-1 rounded-xl border border-slate-200/80 dark:border-white/20 bg-white/95 dark:bg-white/5 overflow-visible h-[2.25rem] sm:h-[2.5rem] focus-within:ring-2 focus-within:ring-indigo-400/50 focus-within:border-indigo-400/50 transition-all duration-200 flex items-center pl-2 sm:pl-3"
       @submit.prevent="submit"
