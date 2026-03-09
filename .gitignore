@@ -6,6 +6,12 @@ dist
 .DS_Store
 *.tsbuildinfo
 
+# 开发文档（仅本地保留，不随仓库公开）
+docs/
+
+# 删库重建一次性清单（仅本地使用）
+REBUILD_REPO_CHECKLIST.md
+
 # Cursor / Agent 本地配置（不参与 Git 同步）
 .agent
 .agent/

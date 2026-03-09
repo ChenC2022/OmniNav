@@ -61,11 +61,7 @@
 ## 文档
 
 - [更新日志](CHANGELOG.md)
-- [需求 PRD](docs/OmniNav%20PRD.md)
-- [开发计划](docs/DEVELOPMENT_PLAN.md)
-- [部署到 Cloudflare](docs/DEPLOY_TO_CLOUDFLARE.md)
-- [部署前自测](docs/PRE_DEPLOY_CHECKLIST.md)
-- [AI 提示词配置与测试](docs/TEST_PROMPTS_AFTER_REFACTOR.md)
+- [开源协议](LICENSE)（MIT）
 
 ---
 
@@ -136,6 +132,6 @@ npm run deploy
   - 已登录：调用 `POST /api/admin/reset-auth-state`，请求体 `{ "password": "当前密码" }`，退出后重新登录（若配置了部署密码则用部署密码；否则需删除 KV 后由首次访问者重新设密）。  
   - 未登录：在 Cloudflare Dashboard → **KV** 中删除 `auth:password_hash` 和 `auth:first_login_done`；或用 Wrangler 删除。若配置了部署密码，删除后用部署密码登录；若未配置，删除后由首次访问者重新设密。
 
-### 详细说明
+### 说明
 
-完整步骤（含 KV 创建、自定义域名、本地开发配置、重置流程等）见 [部署指南](docs/DEPLOY_TO_CLOUDFLARE.md)。
+上述步骤已覆盖 KV 绑定、密码配置与重置；自定义域名等在 Cloudflare Dashboard 的 Pages 项目 **Settings → Custom domains** 中配置。
