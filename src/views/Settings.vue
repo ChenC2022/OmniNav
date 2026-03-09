@@ -1098,7 +1098,7 @@ const navItems = [
           <ul class="list-disc list-inside space-y-1.5 pl-1 opacity-90">
             <li><strong>常用区</strong>：置顶高频书签，无数量上限，编辑布局下拖拽排序</li>
             <li><strong>分类管理</strong>：多分类卡片、私密分类（密码保护）、拖拽排序、分类说明（AI 可生成）</li>
-            <li><strong>搜索</strong>：聚合搜索（网页 + 书签），多引擎切换，@ 或 Tab 快速进入书签模式</li>
+            <li><strong>搜索</strong>：聚合搜索（网页 + 书签），多引擎切换，Tab 或点击「书签」切换书签搜索</li>
             <li><strong>AI 助手</strong>：右侧抽屉对话、未分类书签 AI 自动归类（支持深度分析）、励志语生成</li>
             <li><strong>未分类</strong>：独立区域，支持添加、导入浏览器书签 HTML、检测并清理失效链接</li>
             <li><strong>天气与时钟</strong>：顶部栏实时天气（自动/手动定位）与时钟</li>

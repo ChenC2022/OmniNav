@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, inject, watch, nextTick } from 'vue'
+import { ref, computed, inject, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
+import { onClickOutside } from '@vueuse/core'
 import { useSettingsStore } from '@/stores/settings'
 import { useUiStore } from '@/stores/ui'
 import { useBookmarksStore } from '@/stores/bookmarks'
@@ -31,18 +32,23 @@ const query = ref('')
 const showEngineDropdown = ref(false)
 const inputEl = ref<HTMLInputElement | null>(null)
 const selectedBookmarkIndex = ref(0)
+/** 用于“点击外部关闭”：包含表单 + 两个下拉的容器（不包含遮罩） */
+const searchZoneRef = ref<HTMLElement | null>(null)
+
+/** 网页搜索 / 书签搜索 模式（默认书签）；不再用 @ 前缀推断 */
+const searchMode = ref<'web' | 'bookmark'>('bookmark')
 
 const currentEngineId = computed(() => settings.data.defaultSearchEngine ?? 'google')
 const currentEngine = computed(() => SEARCH_ENGINES.find((e) => e.id === currentEngineId.value) ?? SEARCH_ENGINES[0])
 
-/** 以 @ 开头为书签模式 */
-const isBookmarkMode = computed(() => query.value.trim().startsWith('@'))
+const isBookmarkMode = computed(() => searchMode.value === 'bookmark')
+/** 书签模式下仅在有输入时显示下拉，避免一进书签就弹层 */
+const showBookmarkDropdown = computed(() => isBookmarkMode.value && query.value.trim().length > 0)
 /** 仅在网页搜索模式下显示搜索引擎选择（书签模式不显示） */
 const showEngineSelector = computed(() => !isBookmarkMode.value)
-const bookmarkQuery = computed(() => {
-  const t = query.value.trim()
-  return t.startsWith('@') ? t.slice(1).trim().toLowerCase() : ''
-})
+const bookmarkQuery = computed(() =>
+  isBookmarkMode.value ? query.value.trim().toLowerCase() : ''
+)
 
 /** 多关键词（空格分隔），用于 AND 收窄召回 */
 const bookmarkTokens = computed(() => bookmarkQuery.value.split(/\s+/).filter(Boolean))
@@ -107,7 +113,8 @@ function getCategoryName(categoryId: string) {
 
 watch(triggerBookmarkSearch, (v) => {
   if (!v) return
-  query.value = '@ '
+  searchMode.value = 'bookmark'
+  query.value = ''
   showEngineDropdown.value = false
   nextTick(() => {
     inputEl.value?.focus()
@@ -119,6 +126,21 @@ watch(triggerBookmarkSearch, (v) => {
 watch(displayBookmarks, () => {
   selectedBookmarkIndex.value = Math.min(selectedBookmarkIndex.value, Math.max(0, displayBookmarks.value.length - 1))
 })
+
+/** 点击表单/下拉以外区域时关闭（含遮罩）；仅在下拉实际展开时生效 */
+onClickOutside(searchZoneRef, () => {
+  if (showEngineDropdown.value || showBookmarkDropdown.value) closeDropdowns()
+})
+
+/** 全局 Escape：下拉展开时即使焦点不在输入框也能关闭 */
+function onDocumentKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return
+  if (!showEngineDropdown.value && !showBookmarkDropdown.value) return
+  closeDropdowns()
+  e.preventDefault()
+}
+onMounted(() => document.addEventListener('keydown', onDocumentKeydown, true))
+onUnmounted(() => document.removeEventListener('keydown', onDocumentKeydown, true))
 
 async function selectEngine(id: string) {
   settings.patchSettings({ defaultSearchEngine: id })
@@ -156,18 +178,16 @@ function submit() {
 
 function closeDropdowns() {
   showEngineDropdown.value = false
-  if (isBookmarkMode.value) query.value = ''
+  if (isBookmarkMode.value) {
+    searchMode.value = 'web'
+    query.value = ''
+  }
 }
 
-/** 点击模式标签切换网页/书签搜索 */
+/** 点击模式标签或 Tab 切换网页/书签搜索 */
 function toggleSearchMode() {
-  if (isBookmarkMode.value) {
-    query.value = bookmarkQuery.value
-  } else {
-    showEngineDropdown.value = false
-    const t = query.value.trim()
-    query.value = t ? `@ ${t}` : '@ '
-  }
+  searchMode.value = isBookmarkMode.value ? 'web' : 'bookmark'
+  if (searchMode.value === 'bookmark') showEngineDropdown.value = false
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -178,7 +198,10 @@ function onKeydown(e: KeyboardEvent) {
   }
   if (e.key === 'Escape') {
     showEngineDropdown.value = false
-    if (isBookmarkMode.value) query.value = ''
+    if (isBookmarkMode.value) {
+      searchMode.value = 'web'
+      query.value = ''
+    }
     e.preventDefault()
     return
   }
@@ -208,63 +231,65 @@ function onKeydown(e: KeyboardEvent) {
     class="relative flex flex-1 min-w-0 w-full"
     :class="props.fullWidth ? 'max-w-none mx-0' : 'max-w-2xl mx-1 sm:mx-2 md:mx-8'"
   >
-    <form
-      class="search-bar-form relative flex flex-1 rounded-xl border border-slate-200/80 dark:border-white/20 bg-white/95 dark:bg-white/5 overflow-visible h-[2.25rem] sm:h-[2.5rem] focus-within:ring-2 focus-within:ring-indigo-400/50 focus-within:border-indigo-400/50 transition-all duration-200 flex items-center pl-2 sm:pl-3"
-      @submit.prevent="submit"
-      @keydown="onKeydown"
-    >
-      <button
-        type="button"
-        class="search-mode-tag flex items-center gap-1.5 shrink-0 h-6 px-2.5 rounded-full text-xs font-medium border transition-colors cursor-pointer"
-        :class="isBookmarkMode ? 'search-mode-tag--bookmark' : 'search-mode-tag--web'"
-        :title="isBookmarkMode ? '当前：书签搜索（点击切换为网页搜索）' : '当前：网页搜索（点击切换为书签搜索）'"
-        @click="toggleSearchMode"
+    <!-- 仅表单+下拉算“内部”，遮罩在外部以便点击遮罩触发 onClickOutside -->
+    <div ref="searchZoneRef" class="relative flex flex-1 min-w-0 w-full">
+      <form
+        class="search-bar-form relative flex flex-1 rounded-xl border border-slate-200/80 dark:border-white/20 bg-white/95 dark:bg-white/5 overflow-visible h-[2.25rem] sm:h-[2.5rem] focus-within:ring-2 focus-within:ring-indigo-400/50 focus-within:border-indigo-400/50 transition-all duration-200 flex items-center pl-2 sm:pl-3"
+        @submit.prevent="submit"
+        @keydown="onKeydown"
       >
-        <span class="material-symbols-outlined text-base leading-none" aria-hidden="true">
-          {{ isBookmarkMode ? 'bookmark' : 'public' }}
-        </span>
-        <span>{{ isBookmarkMode ? '书签' : '网页' }}</span>
-      </button>
-      <input
-        ref="inputEl"
-        v-model="query"
-        type="text"
-        class="search-bar-input flex-1 min-w-0 h-full py-0 pl-2 pr-2 ml-2 bg-transparent text-slate-800 dark:text-white text-sm placeholder-slate-400 dark:placeholder-white/60 focus:outline-none border-0"
-        :placeholder="isBookmarkMode ? '空格分隔多关键词可收窄结果，支持标题、说明、链接、分类' : '搜索网页或 @ 搜索书签，Tab 可快速切换'"
-        autocomplete="off"
-        aria-label="搜索"
-      />
-      <button
-        v-if="showEngineSelector"
-        type="button"
-        class="search-bar-engine flex items-center gap-1 px-3 h-full text-xs font-medium text-slate-500 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 shrink-0 transition-colors cursor-pointer"
-        title="切换搜索引擎（仅网页搜索时生效）"
-        @click="showEngineDropdown = !showEngineDropdown"
+        <button
+          type="button"
+          class="search-mode-tag flex items-center gap-1.5 shrink-0 h-6 px-2.5 rounded-full text-xs font-medium border transition-colors cursor-pointer"
+          :class="isBookmarkMode ? 'search-mode-tag--bookmark' : 'search-mode-tag--web'"
+          :title="isBookmarkMode ? '当前：书签搜索（点击切换为网页搜索）' : '当前：网页搜索（点击切换为书签搜索）'"
+          @click="toggleSearchMode"
+        >
+          <span class="material-symbols-outlined text-base leading-none" aria-hidden="true">
+            {{ isBookmarkMode ? 'bookmark' : 'public' }}
+          </span>
+          <span>{{ isBookmarkMode ? '书签' : '网页' }}</span>
+        </button>
+        <input
+          ref="inputEl"
+          v-model="query"
+          type="text"
+          class="search-bar-input flex-1 min-w-0 h-full py-0 pl-2 pr-2 ml-2 bg-transparent text-slate-800 dark:text-white text-sm placeholder-slate-400 dark:placeholder-white/60 focus:outline-none border-0"
+          :placeholder="isBookmarkMode ? '空格分隔多关键词可收窄结果，支持标题、说明、链接、分类' : '搜索网页，Tab 可切换书签搜索'"
+          autocomplete="off"
+          aria-label="搜索"
+        />
+        <button
+          v-if="showEngineSelector"
+          type="button"
+          class="search-bar-engine flex items-center gap-1 px-3 h-full text-xs font-medium text-slate-500 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 shrink-0 transition-colors cursor-pointer"
+          title="切换搜索引擎（仅网页搜索时生效）"
+          @click="showEngineDropdown = !showEngineDropdown"
+        >
+          {{ currentEngine.name }} ▾
+        </button>
+      </form>
+      <!-- 引擎选择下拉（仅网页搜索模式） -->
+      <div
+        v-show="showEngineDropdown && showEngineSelector"
+        class="search-dropdown absolute top-full left-0 right-0 mt-2 p-2 rounded-xl border border-slate-200 dark:border-white/20 shadow-xl z-20 bg-white dark:bg-slate-900"
       >
-        {{ currentEngine.name }} ▾
-      </button>
-    </form>
-    <!-- 引擎选择下拉（仅网页搜索模式） -->
-    <div
-      v-show="showEngineDropdown && showEngineSelector"
-      class="search-dropdown absolute top-full left-0 right-0 mt-2 p-2 rounded-xl border border-slate-200 dark:border-white/20 shadow-xl z-20 bg-white dark:bg-slate-900"
-    >
-      <button
-        v-for="eng in SEARCH_ENGINES"
-        :key="eng.id"
-        type="button"
-        class="search-dropdown-item w-full px-3 py-2.5 text-left text-sm font-medium transition-colors cursor-pointer rounded-lg"
-        :class="currentEngineId === eng.id ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-700 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10'"
-        @click="selectEngine(eng.id); showEngineDropdown = false"
+        <button
+          v-for="eng in SEARCH_ENGINES"
+          :key="eng.id"
+          type="button"
+          class="search-dropdown-item w-full px-3 py-2.5 text-left text-sm font-medium transition-colors cursor-pointer rounded-lg"
+          :class="currentEngineId === eng.id ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-700 dark:text-white hover:bg-slate-200/50 dark:hover:bg-white/10'"
+          @click="selectEngine(eng.id); showEngineDropdown = false"
+        >
+          {{ eng.name }}
+        </button>
+      </div>
+      <!-- 书签结果下拉（书签模式且已有输入时显示） -->
+      <div
+        v-show="showBookmarkDropdown"
+        class="search-dropdown search-bookmark-dropdown custom-scrollbar absolute top-full left-0 right-0 mt-2 py-2 rounded-xl border border-slate-200 dark:border-white/20 shadow-xl z-20 bg-white dark:bg-slate-900 max-h-[60vh] overflow-y-auto"
       >
-        {{ eng.name }}
-      </button>
-    </div>
-    <!-- 书签结果下拉（@ 模式） -->
-    <div
-      v-show="isBookmarkMode"
-      class="search-dropdown search-bookmark-dropdown custom-scrollbar absolute top-full left-0 right-0 mt-2 py-2 rounded-xl border border-slate-200 dark:border-white/20 shadow-xl z-20 bg-white dark:bg-slate-900 max-h-[60vh] overflow-y-auto"
-    >
       <!-- 使用提示 -->
       <p class="px-3 pt-1 pb-2 text-xs text-slate-400 dark:text-white/35 border-b border-slate-100 dark:border-white/10 mb-1">
         支持标题、说明、链接、分类名 · 空格分隔多关键词可收窄结果
@@ -311,7 +336,9 @@ function onKeydown(e: KeyboardEvent) {
       <p v-else class="px-3 py-4 text-center text-sm text-slate-500 dark-text-94">
         {{ bookmarkQuery ? '无匹配书签' : '输入关键词搜索书签' }}
       </p>
+      </div>
     </div>
-    <div v-show="showEngineDropdown || isBookmarkMode" class="fixed inset-0 z-10" @click="closeDropdowns" />
+    <!-- 遮罩在 searchZoneRef 外，仅在下拉实际展开时显示 -->
+    <div v-show="showEngineDropdown || showBookmarkDropdown" class="fixed inset-0 z-10" @click="closeDropdowns" />
   </div>
 </template>
