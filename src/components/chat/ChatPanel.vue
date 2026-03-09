@@ -1,13 +1,47 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { useSettingsStore } from '@/stores/settings'
 import { apiFetch } from '@/utils/api'
 
 defineEmits<{ close: [] }>()
 
+/** Markdown 渲染允许的 HTML 标签（白名单，防 XSS） */
+const MARKDOWN_ALLOWED_TAGS = [
+  'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'a', 'ul', 'ol', 'li',
+  'h1', 'h2', 'h3', 'h4', 'code', 'pre', 'blockquote', 'hr', 'span',
+]
+const MARKDOWN_ALLOWED_ATTR = ['href', 'target', 'rel']
+
+function renderMarkdown(content: string): string {
+  if (!content?.trim()) return ''
+  const rawHtml = marked.parse(content, { async: false }) as string
+  DOMPurify.addHook('afterSanitizeElements', (node) => {
+    if (node.tagName === 'A') {
+      node.setAttribute('target', '_blank')
+      node.setAttribute('rel', 'noopener noreferrer')
+    }
+  })
+  const out = DOMPurify.sanitize(rawHtml, {
+    ALLOWED_TAGS: MARKDOWN_ALLOWED_TAGS,
+    ALLOWED_ATTR: MARKDOWN_ALLOWED_ATTR,
+  })
+  DOMPurify.removeHook('afterSanitizeElements')
+  return out
+}
+
+interface TokenUsage {
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  /** 仅 assistant 消息可能有；来自上游 API 的 usage */
+  usage?: TokenUsage
 }
 
 const settings = useSettingsStore()
@@ -20,6 +54,13 @@ const listEl = ref<HTMLElement | null>(null)
 const isConfigured = computed(() => {
   const ai = settings.data.ai
   return !!(ai?.baseUrl?.trim() && ai?.model?.trim())
+})
+
+/** 本次对话累计 token 消耗（仅统计有 usage 的 assistant 回复） */
+const sessionTokenTotal = computed(() => {
+  return messages.value
+    .filter((m): m is ChatMessage & { usage: TokenUsage } => m.role === 'assistant' && m.usage != null)
+    .reduce((sum, m) => sum + (m.usage.total_tokens ?? 0), 0)
 })
 
 watch(
@@ -62,12 +103,21 @@ async function send() {
       return
     }
     const reply = (data as { message?: string })?.message ?? ''
-    messages.value.push({ role: 'assistant', content: reply })
+    const usage = (data as { usage?: TokenUsage })?.usage
+    messages.value.push({ role: 'assistant', content: reply, usage })
   } catch (e) {
     error.value = e instanceof Error ? e.message : '网络错误'
   } finally {
     loading.value = false
   }
+}
+
+function hasAnyTokenUsage(u: TokenUsage): boolean {
+  return (
+    (u.prompt_tokens != null && u.prompt_tokens > 0) ||
+    (u.completion_tokens != null && u.completion_tokens > 0) ||
+    (u.total_tokens != null && u.total_tokens > 0)
+  )
 }
 
 function clearChat() {
@@ -98,7 +148,9 @@ defineExpose({ clearChat })
 
     <div ref="listEl" class="flex-1 overflow-auto p-6 space-y-6 min-h-0 custom-scrollbar">
       <template v-if="messages.length === 0 && !loading">
-        <p class="chat-panel-empty text-slate-500 dark:text-slate-400 text-sm">输入消息开始对话。</p>
+        <p class="chat-panel-empty text-slate-500 dark:text-slate-400 text-sm">
+            我是你的书签助手，已加载你的全部书签与分类。你可以问我「有没有收藏过 xxx」「找一下和 xxx 有关的链接」「某分类里有什么」等，也可以随便聊天。
+          </p>
       </template>
       <template v-else>
         <div
@@ -113,15 +165,28 @@ defineExpose({ clearChat })
           >
             <span class="material-symbols-outlined text-sm">{{ msg.role === 'user' ? 'person' : 'auto_awesome' }}</span>
           </div>
-          <div
-            class="max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words border chat-panel-bubble"
-            :class="
-              msg.role === 'user'
-                ? 'bg-indigo-500/10 border-indigo-400/20 text-slate-700 dark:text-slate-200 rounded-tr-none'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 rounded-tl-none chat-panel-assistant-bubble'
-            "
-          >
-            {{ msg.content }}
+          <div class="max-w-[85%] flex flex-col gap-1">
+            <div
+              class="rounded-2xl px-4 py-3 text-sm leading-relaxed break-words border chat-panel-bubble"
+              :class="
+                msg.role === 'user'
+                  ? 'bg-indigo-500/10 border-indigo-400/20 text-slate-700 dark:text-slate-200 rounded-tr-none whitespace-pre-wrap'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 rounded-tl-none chat-panel-assistant-bubble'
+              "
+            >
+              <template v-if="msg.role === 'user'">{{ msg.content }}</template>
+              <div
+                v-else
+                class="chat-panel-markdown"
+                v-html="renderMarkdown(msg.content)"
+              />
+            </div>
+            <p
+              v-if="msg.role === 'assistant' && msg.usage && hasAnyTokenUsage(msg.usage)"
+              class="chat-panel-usage text-xs text-slate-400 dark:text-slate-500"
+            >
+              本句消耗：输入 {{ msg.usage.prompt_tokens ?? '—' }} / 输出 {{ msg.usage.completion_tokens ?? '—' }}（共 {{ msg.usage.total_tokens ?? '—' }} token）
+            </p>
           </div>
         </div>
         <div v-if="loading" class="flex gap-4">
@@ -135,6 +200,14 @@ defineExpose({ clearChat })
       </template>
     </div>
 
+    <div
+      v-if="sessionTokenTotal > 0"
+      class="px-6 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/30"
+    >
+      <p class="text-xs text-slate-500 dark:text-slate-400">
+        本次对话累计消耗：<strong class="text-slate-700 dark:text-slate-300">{{ sessionTokenTotal }}</strong> token
+      </p>
+    </div>
     <form class="chat-panel-form p-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800" @submit.prevent="send">
       <div class="relative">
         <textarea

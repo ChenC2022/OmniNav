@@ -36,7 +36,7 @@
 - **AI 自动归类**：将未分类书签交由大模型判断，归入已有分类或建议新分类；支持深度分析（抓取网页摘要）。
 - **AI 快速添加**：顶部栏「快速添加」图标（与 AI 对话并列），点击弹出浮层，粘贴 URL 后由 AI 自动生成标题、描述并归类入库；支持多 URL 批量添加与深度网页分析。
 - **AI 生成书签和分类说明**：编辑分类时可一键让 AI 生成分类说明。说明也将被用于AI分析的依据。
-- **AI 对话**：顶部栏入口打开右侧抽屉，与自配置大模型对话（需在设置中填写 Base URL、Model、API Key）。
+- **AI 对话（书签检索助手）**：顶部栏入口打开右侧抽屉，与自配置大模型对话。会话会将用户**全部书签与分类**（名称 + 说明）作为上下文注入，AI 主要作为书签检索助手（如「我收藏了哪些 Vue 相关链接？」），也可正常聊天或回答一般问题。助手回复支持 **Markdown 渲染**（加粗、列表、链接等），并对 HTML 做安全过滤，所有链接会在新标签页打开。需在设置中填写 Base URL、Model、API Key。界面展示**每句与本次对话的 token 消耗**（输入/输出/合计），便于评估用量；当前策略为全量注入书签，未设条数或 token 上限。
 - **励志语**：位于「置顶」区标题右侧，由大模型随机生成 12 条励志语（两端 ✨ 图标装饰），每 5 分钟自动轮播一条，点击可手动切换下一条。
 - **分类准确性等取决于AI 模型能力和说明的完整性和清晰度**
 
@@ -64,6 +64,8 @@
 - **存储**：Cloudflare KV（`KV_OMNINAV`）
 
 **AI 提示词**：所有发给大模型的提示词统一在 `src/constants/prompts.ts` 中配置，便于修改与多语言扩展；校验脚本见 `scripts/verify-prompts.ts`。
+
+**AI 对话（书签上下文）**：`POST /api/ai/chat` 在鉴权后从 KV 读取 `bookmarks` 与 `categories`，在 `functions/api/[[path]].ts` 内通过 `buildBookmarkContextSystemPrompt` 拼成系统提示（分类名+说明、书签标题+URL+描述，按分类分组），以 `role: system` 注入后连同用户消息转发至 OpenAI 兼容的 `/chat/completions`。上游返回的 `usage`（prompt_tokens / completion_tokens / total_tokens）原样返回前端；前端在 `ChatPanel.vue` 中展示每句与本轮对话累计的 token 消耗。当前无条数或 token 上限，全量注入。
 
 ---
 

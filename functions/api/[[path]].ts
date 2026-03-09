@@ -634,7 +634,75 @@ app.post('/check-url', async (c) => {
   }
 })
 
-// POST /api/ai/chat：从 KV 读取 AI 配置，转发 OpenAI 兼容接口（非流式）
+// 书签/分类类型（仅取 AI 上下文所需字段）
+interface BookmarkForContext {
+  id?: string
+  title?: string
+  url?: string
+  description?: string
+  categoryId?: string
+  order?: number
+}
+interface CategoryForContext {
+  id?: string
+  name?: string
+  description?: string
+  order?: number
+}
+
+/** 构建「书签检索助手」系统提示：包含全部分类与书签（名称+说明），无条数/长度上限 */
+function buildBookmarkContextSystemPrompt(
+  bookmarks: BookmarkForContext[],
+  categories: CategoryForContext[]
+): string {
+  const intro =
+    '你是用户的书签检索助手，可以根据下方书签信息回答检索、推荐、归类等问题；你也可以正常聊天或回答一般问题。\n\n【书签与分类】\n\n'
+  if (!bookmarks.length && !categories.length) {
+    return intro + '（用户暂无书签与分类）'
+  }
+  const catMap = new Map<string, CategoryForContext>()
+  for (const cat of categories) {
+    if (cat?.id != null) catMap.set(String(cat.id), cat)
+  }
+  const byCat = new Map<string, BookmarkForContext[]>()
+  for (const b of bookmarks) {
+    if (!b || b.categoryId == null) continue
+    const list = byCat.get(b.categoryId) ?? []
+    list.push(b)
+    byCat.set(b.categoryId, list)
+  }
+  const sortedCats = [...categories].filter((c) => c && c.id != null).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  const lines: string[] = []
+  for (const cat of sortedCats) {
+    const id = String(cat.id)
+    const name = cat.name ?? '未命名分类'
+    const desc = cat.description?.trim()
+    lines.push(`## ${name}${desc ? `\n说明：${desc}` : ''}`)
+    const list = byCat.get(id) ?? []
+    list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    for (const b of list) {
+      const title = b.title?.trim() || '(无标题)'
+      const url = b.url?.trim() || ''
+      const bDesc = b.description?.trim()
+      lines.push(`- ${title} | ${url}${bDesc ? ` | ${bDesc}` : ''}`)
+    }
+    lines.push('')
+  }
+  const uncat = bookmarks.filter((b) => b && (b.categoryId == null || !catMap.has(String(b.categoryId))))
+  if (uncat.length) {
+    uncat.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    lines.push('## 未分类')
+    for (const b of uncat) {
+      const title = b.title?.trim() || '(无标题)'
+      const url = b.url?.trim() || ''
+      const bDesc = b.description?.trim()
+      lines.push(`- ${title} | ${url}${bDesc ? ` | ${bDesc}` : ''}`)
+    }
+  }
+  return intro + lines.join('\n').trimEnd()
+}
+
+// POST /api/ai/chat：从 KV 读取 AI 配置与书签/分类，注入系统上下文后转发 OpenAI 兼容接口（非流式），并返回 usage
 app.post('/ai/chat', async (c) => {
   const kv = c.env.KV_OMNINAV
   if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
@@ -651,6 +719,19 @@ app.post('/ai/chat', async (c) => {
   if (!Array.isArray(messages) || messages.length === 0) {
     return c.json({ ok: false, error: 'Missing messages' }, 400)
   }
+
+  const [bookmarksJson, categoriesJson] = await Promise.all([
+    getJson<BookmarkForContext[]>(kv, 'bookmarks'),
+    getJson<CategoryForContext[]>(kv, 'categories'),
+  ])
+  const bookmarks = Array.isArray(bookmarksJson) ? bookmarksJson : []
+  const categories = Array.isArray(categoriesJson) ? categoriesJson : []
+  const systemContent = buildBookmarkContextSystemPrompt(bookmarks, categories)
+  const messagesWithSystem = [
+    { role: 'system' as const, content: systemContent },
+    ...messages.map((m) => ({ role: m.role, content: m.content })),
+  ]
+
   const url = baseUrl.replace(/\/$/, '') + '/chat/completions'
   try {
     const res = await fetch(url, {
@@ -659,7 +740,7 @@ app.post('/ai/chat', async (c) => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model, messages }),
+      body: JSON.stringify({ model, messages: messagesWithSystem }),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
@@ -670,7 +751,14 @@ app.post('/ai/chat', async (c) => {
     const text = choices?.[0] && typeof choices[0] === 'object' && choices[0] !== null && 'message' in choices[0]
       ? ((choices[0] as { message?: { content?: string } }).message?.content ?? '')
       : ''
-    return c.json({ ok: true, message: text, raw: data })
+    const usage = (data as { usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } })
+      ?.usage
+    return c.json({
+      ok: true,
+      message: text,
+      usage: usage ?? undefined,
+      raw: data,
+    })
   } catch (e) {
     return c.json({ ok: false, error: String(e) }, 502)
   }
