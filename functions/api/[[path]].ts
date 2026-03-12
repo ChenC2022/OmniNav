@@ -856,4 +856,102 @@ app.post('/ai/chat', async (c) => {
   }
 })
 
+// POST /api/ai/classify：根据书签标题+URL，从现有分类中推荐最合适的 categoryId
+app.post('/ai/classify', async (c) => {
+  const kv = c.env.KV_OMNINAV
+  if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
+
+  const settings = await getJson<Record<string, unknown>>(kv, 'settings')
+  const ai = settings?.ai && typeof settings.ai === 'object' ? (settings.ai as Record<string, unknown>) : null
+  const baseUrl = (ai?.baseUrl as string)?.trim?.()
+  const model = (ai?.model as string)?.trim?.()
+  const apiKey = (ai?.apiKey as string)?.trim?.()
+  if (!baseUrl || !model || !apiKey) {
+    return c.json({ ok: false, error: 'AI 未配置', code: 'AI_NOT_CONFIGURED' }, 400)
+  }
+
+  const body = await c.req.json<{ title?: string; url?: string; categories?: { id: string; name: string }[] }>().catch(() => ({}))
+  const { title = '', url = '', categories = [] } = body
+
+  if (!categories.length) {
+    return c.json({ ok: true, categoryId: null, reason: '无可用分类' })
+  }
+
+  const catList = categories.map((cat, i) => `${i + 1}. id="${cat.id}" name="${cat.name}"`).join('\n')
+  const prompt = `你是一个书签分类助手。请根据书签信息，从下列分类中选出最合适的一个，只返回该分类的 id，不要解释。
+
+书签标题：${title}
+书签URL：${url}
+
+可选分类列表：
+${catList}
+
+请直接返回最合适的分类 id（字符串），如果没有合适的分类就返回 "uncategorized"。`
+
+  const aiUrl = baseUrl.replace(/\/$/, '') + '/chat/completions'
+  try {
+    const res = await fetch(aiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 64,
+        temperature: 0,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const errMsg = (data as { error?: { message?: string } })?.error?.message ?? res.statusText
+      return c.json({ ok: false, error: errMsg }, 502)
+    }
+    const raw = (data as { choices?: { message?: { content?: string } }[] })?.choices?.[0]?.message?.content?.trim() ?? ''
+    // 校验返回的 id 确实在分类列表中
+    const matched = categories.find((cat) => cat.id === raw)
+    return c.json({ ok: true, categoryId: matched ? matched.id : null, raw })
+  } catch (e) {
+    return c.json({ ok: false, error: String(e) }, 502)
+  }
+})
+
+// POST /api/ext/bookmarks：增量添加单条书签（后端负责读-去重-追加-写，避免客户端全量覆盖竞争）
+app.post('/ext/bookmarks', async (c) => {
+  const kv = c.env.KV_OMNINAV
+  if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
+
+  type NewBookmark = {
+    id?: string
+    title?: string
+    url?: string
+    description?: string
+    categoryId?: string
+    order?: number
+  }
+
+  const body = await c.req.json<NewBookmark>().catch(() => null)
+  if (!body || typeof body.url !== 'string' || !body.url.trim()) {
+    return c.json({ ok: false, error: 'url 为必填字段' }, 400)
+  }
+
+  const url = body.url.trim()
+  const existing = await getJson<NewBookmark[]>(kv, 'bookmarks') ?? []
+
+  // URL 去重
+  if (existing.some((b) => b.url === url)) {
+    return c.json({ ok: false, error: '该链接已存在', code: 'DUPLICATE' }, 409)
+  }
+
+  const newBookmark: NewBookmark = {
+    id: body.id ?? crypto.randomUUID(),
+    title: (body.title ?? '').trim() || url,
+    url,
+    description: body.description ?? '',
+    categoryId: body.categoryId ?? 'uncategorized',
+    order: body.order ?? existing.length,
+  }
+
+  await kv.put('bookmarks', JSON.stringify([...existing, newBookmark]))
+  return c.json({ ok: true, data: newBookmark })
+})
+
 export const onRequest = handle(app)
