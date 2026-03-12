@@ -6,6 +6,7 @@ import { nanoid } from '@/utils/id'
 import { apiFetch } from '@/utils/api'
 import { useCategoriesStore } from '@/stores/categories'
 import { buildBookmarkSuggestionPrompt } from '@/constants/prompts'
+import { faviconUrl, faviconFallbackUrl } from '@/utils/favicon'
 
 const props = defineProps<{
   modelValue: boolean
@@ -20,8 +21,15 @@ const emit = defineEmits<{
 const title = ref('')
 const url = ref('')
 const description = ref('')
+const favicon = ref('')
 const generatingInfo = ref(false)
 const generateInfoError = ref('')
+/** 图标预览：刷新时递增，用于 cache-bust 强制重新请求 */
+const iconPreviewRefreshKey = ref(0)
+/** 图标展示阶段：proxy -> fallback -> letter */
+const iconStage = ref<'proxy' | 'fallback' | 'letter'>('proxy')
+/** 自定义图标地址预览加载失败时置为 true */
+const customPreviewError = ref(false)
 
 const categoriesStore = useCategoriesStore()
 const selectedCategoryId = ref('')
@@ -41,21 +49,29 @@ watch(
   ([open, b]) => {
     if (open) {
       generateInfoError.value = ''
+      iconStage.value = 'proxy'
+      iconPreviewRefreshKey.value = 0
+      customPreviewError.value = false
       if (b) {
         title.value = b.title
         url.value = b.url
         description.value = b.description ?? ''
         selectedCategoryId.value = b.categoryId
+        favicon.value = b.favicon ?? ''
       } else {
         title.value = ''
         url.value = ''
         description.value = ''
         selectedCategoryId.value = props.categoryId
+        favicon.value = ''
       }
     }
   },
   { immediate: true }
 )
+watch(url, () => {
+  iconStage.value = 'proxy'
+})
 
 async function generateInfoByAI() {
   const u = url.value.trim()
@@ -126,6 +142,55 @@ function titleFromUrl(urlStr: string): string {
   }
 }
 
+const iconPreviewSize = 32
+/** “图标地址” 填了且为 http(s) 时视为自定义图标 */
+const hasCustomFaviconInForm = computed(() => {
+  const u = favicon.value.trim()
+  return !!(u && (u.startsWith('http://') || u.startsWith('https://')))
+})
+const iconPreviewSrc = computed(() => {
+  const u = url.value.trim()
+  if (!u) return ''
+  if (iconStage.value === 'proxy') {
+    return `${faviconUrl(u, iconPreviewSize)}&_t=${iconPreviewRefreshKey.value}`
+  }
+  if (iconStage.value === 'fallback') return faviconFallbackUrl(u) ?? ''
+  return ''
+})
+/** 预览区实际显示的 src：有自定义图标时优先用自定义，否则用自动获取 */
+const effectivePreviewSrc = computed(() => {
+  if (hasCustomFaviconInForm.value) return favicon.value.trim()
+  return iconPreviewSrc.value
+})
+const iconFallbackLetter = computed(() => {
+  const t = title.value.trim() || titleFromUrl(url.value.trim())
+  return t ? t.charAt(0).toUpperCase() : '?'
+})
+function onPreviewIconError() {
+  if (hasCustomFaviconInForm.value) {
+    customPreviewError.value = true
+    return
+  }
+  if (iconStage.value === 'proxy' && faviconFallbackUrl(url.value.trim())) {
+    iconStage.value = 'fallback'
+    return
+  }
+  iconStage.value = 'letter'
+}
+watch(favicon, () => { customPreviewError.value = false })
+function refreshIcon() {
+  if (!url.value.trim()) return
+  customPreviewError.value = false
+  iconStage.value = 'proxy'
+  iconPreviewRefreshKey.value += 1
+}
+/** 预览区是否显示首字母（无图或自定义图加载失败） */
+const showPreviewLetter = computed(() => {
+  if (!effectivePreviewSrc.value) return true
+  if (hasCustomFaviconInForm.value && customPreviewError.value) return true
+  return iconStage.value === 'letter'
+})
+
 function submit() {
   const t = title.value.trim()
   const u = url.value.trim()
@@ -138,6 +203,7 @@ function submit() {
     description: description.value.trim() || undefined,
     categoryId: selectedCategoryId.value,
     order: props.edit?.order ?? 0,
+    favicon: favicon.value.trim() || undefined,
     ...(props.edit ? {} : { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }),
   })
   emit('update:modelValue', false)
@@ -186,6 +252,34 @@ function close() {
                 placeholder="https://..."
               />
               <p v-if="generateInfoError" class="mt-1 text-xs text-red-500 dark:text-red-400">{{ generateInfoError }}</p>
+              <!-- 书签图标预览：有“图标地址”时显示自定义图标，否则显示自动获取 -->
+              <div v-if="url.trim()" class="mt-2 flex items-center gap-3">
+                <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 shrink-0 overflow-hidden">
+                  <img
+                    v-if="effectivePreviewSrc && !showPreviewLetter"
+                    :src="effectivePreviewSrc"
+                    :alt="''"
+                    width="32"
+                    height="32"
+                    class="w-8 h-8 object-contain"
+                    @error="onPreviewIconError"
+                  />
+                  <span
+                    v-else
+                    class="bookmark-letter w-full h-full flex items-center justify-center text-sm font-bold text-slate-500 dark:text-slate-400"
+                  >
+                    {{ iconFallbackLetter }}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  class="text-xs px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 flex items-center gap-1 transition-colors"
+                  @click="refreshIcon"
+                >
+                  <span class="material-symbols-outlined text-sm">refresh</span>
+                  刷新图标
+                </button>
+              </div>
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">所属分类</label>
@@ -239,6 +333,16 @@ function close() {
                 class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all resize-none"
                 placeholder="简要说明该书签的内容..."
               />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">图标地址（可选）</label>
+              <input
+                v-model="favicon"
+                type="url"
+                class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
+                placeholder="自动获取失败时可填图片 URL，如 https://..."
+              />
+              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">部分站点（如受 Cloudflare 保护）无法自动拉取图标，可在此粘贴图标图片链接</p>
             </div>
             <div class="flex justify-end gap-2 pt-2">
               <button

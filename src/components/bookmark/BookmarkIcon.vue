@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { Bookmark } from '@/types'
 
 defineOptions({ inheritAttrs: false })
@@ -32,7 +32,14 @@ defineEmits<{
 }>()
 
 const healthCheckStore = useHealthCheckStore()
-const iconStage = ref<'proxy' | 'fallback' | 'letter'>('proxy')
+const iconStage = ref<'custom' | 'proxy' | 'fallback' | 'letter'>('proxy')
+const hasCustomFavicon = computed(() => {
+  const u = props.bookmark.favicon?.trim()
+  return !!(u && (u.startsWith('http://') || u.startsWith('https://')))
+})
+watch(() => [props.bookmark.id, props.bookmark.favicon], () => {
+  iconStage.value = hasCustomFavicon.value ? 'custom' : 'proxy'
+}, { immediate: true })
 
 const iconSize = computed(() => {
   const s = props.size ?? 'md'
@@ -62,7 +69,9 @@ const healthDotClass = computed(() => {
 /** 是否显示状态点：已有 health 或正在检测 */
 const showHealthDot = computed(() => props.bookmark.health != null || isChecking.value)
 
+const customFaviconUrl = computed(() => props.bookmark.favicon?.trim() || '')
 const currentSrc = computed(() => {
+  if (iconStage.value === 'custom') return customFaviconUrl.value
   if (iconStage.value === 'proxy') return faviconUrl(props.bookmark.url, iconSize.value)
   if (iconStage.value === 'fallback') return faviconFallbackUrl(props.bookmark.url)
   return ''
@@ -75,6 +84,10 @@ const fallbackLetter = computed(() => {
 })
 
 function onIconError() {
+  if (iconStage.value === 'custom') {
+    iconStage.value = 'proxy'
+    return
+  }
   if (iconStage.value === 'proxy') {
     const fb = faviconFallbackUrl(props.bookmark.url)
     if (fb) {
@@ -101,7 +114,7 @@ function onIconError() {
     >
     <div class="relative shrink-0">
       <img
-        v-if="iconStage !== 'letter'"
+        v-if="iconStage !== 'letter' && currentSrc"
         :src="currentSrc"
         :alt="''"
         :width="iconSize"

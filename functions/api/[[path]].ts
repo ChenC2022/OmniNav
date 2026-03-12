@@ -172,6 +172,9 @@ app.post('/auth/login', async (c) => {
 
 // GET /api/favicon（公开，未登录也可用）
 const FAVICON_TIMEOUT_MS = 4000
+/** 请求站点时使用浏览器 UA，避免 Cloudflare 等返回挑战页导致拿不到真实 HTML/图标 */
+const FAVICON_BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 async function fetchWithTimeout(url: string, opts: RequestInit = {}): Promise<Response> {
   const controller = new AbortController()
   const tid = setTimeout(() => controller.abort(), FAVICON_TIMEOUT_MS)
@@ -184,21 +187,62 @@ async function fetchWithTimeout(url: string, opts: RequestInit = {}): Promise<Re
     throw new Error('Favicon fetch timeout or error')
   }
 }
+
+/**
+ * 从 HTML 中解析 <link rel="icon"> / <link rel="shortcut icon"> 的 href，
+ * 优先选择带 sizes 32 或 16 的，相对路径按 baseUrl 解析为绝对 URL。
+ */
+function parseFaviconFromHtml(html: string, baseUrl: string): string | null {
+  const iconCandidates: { href: string; priority: number }[] = []
+  const linkRe = /<link\s[^>]*>/gi
+  let m: RegExpExecArray | null
+  while ((m = linkRe.exec(html)) !== null) {
+    const tag = m[0]
+    const relMatch = tag.match(/\brel\s*=\s*["']([^"']*)["']/i)
+    const hrefMatch = tag.match(/\bhref\s*=\s*["']([^"']*)["']/i)
+    if (!relMatch || !hrefMatch) continue
+    const rel = relMatch[1].toLowerCase()
+    if (!rel.includes('icon')) continue
+    const href = hrefMatch[1].trim()
+    if (!href || href.startsWith('data:')) continue
+    let priority = 0
+    const sizesMatch = tag.match(/\bsizes\s*=\s*["']([^"']*)["']/i)
+    if (sizesMatch) {
+      const s = sizesMatch[1]
+      if (s.includes('32')) priority = 2
+      else if (s.includes('16')) priority = 1
+    } else {
+      priority = 1
+    }
+    iconCandidates.push({ href, priority })
+  }
+  if (iconCandidates.length === 0) return null
+  iconCandidates.sort((a, b) => b.priority - a.priority)
+  try {
+    return new URL(iconCandidates[0].href, baseUrl).href
+  } catch {
+    return null
+  }
+}
+
 app.get('/favicon', async (c) => {
   const raw = c.req.query('url')
   if (!raw || typeof raw !== 'string') return c.json({ ok: false, error: 'Missing url' }, 400)
   let domain: string
   let origin: string
+  let pageUrl: string
   try {
     const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`)
     if (!isUrlAllowed(u)) return c.json({ ok: false, error: 'URL not allowed' }, 400)
     domain = u.hostname
     origin = u.origin
+    pageUrl = u.href
   } catch {
     return c.json({ ok: false, error: 'Invalid url' }, 400)
   }
   const size = Math.min(128, Math.max(16, Number(c.req.query('sz')) || 32))
   const headers = { 'User-Agent': 'OmniNav/1' }
+  const siteHeaders = { 'User-Agent': FAVICON_BROWSER_UA }
   const googleUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`
   try {
     const res = await fetchWithTimeout(googleUrl, { headers })
@@ -210,15 +254,63 @@ app.get('/favicon', async (c) => {
   } catch {
     /* 继续尝试站点 favicon */
   }
+  for (const path of ['/favicon.ico', '/apple-touch-icon.png']) {
+    try {
+      const res = await fetchWithTimeout(`${origin}${path}`, { headers: siteHeaders })
+      if (res.ok) {
+        const blob = await res.arrayBuffer()
+        const contentType = res.headers.get('Content-Type') || (path.endsWith('.ico') ? 'image/x-icon' : 'image/png')
+        return new Response(blob, { headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' } })
+      }
+    } catch {
+      /* 尝试下一路径 */
+    }
+  }
   try {
-    const res = await fetchWithTimeout(`${origin}/favicon.ico`, { headers })
-    if (res.ok) {
-      const blob = await res.arrayBuffer()
-      const contentType = res.headers.get('Content-Type') || 'image/x-icon'
-      return new Response(blob, { headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' } })
+    const pageRes = await fetchWithTimeout(pageUrl, { headers: siteHeaders })
+    if (!pageRes.ok) throw new Error('Page fetch failed')
+    const html = await pageRes.text()
+    const iconUrl = parseFaviconFromHtml(html, pageUrl)
+    if (iconUrl) {
+      const iconUrlObj = new URL(iconUrl)
+      if (!isUrlAllowed(iconUrlObj)) throw new Error('Favicon URL not allowed')
+      const iconRes = await fetchWithTimeout(iconUrl, { headers: siteHeaders })
+      if (iconRes.ok) {
+        const blob = await iconRes.arrayBuffer()
+        const contentType = iconRes.headers.get('Content-Type') || 'image/png'
+        return new Response(blob, { headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' } })
+      }
     }
   } catch {
-    /* 两路都失败则返回透明占位图，避免 502 导致控制台报错 */
+    /* 尝试主域名 fallback（如 dash.domain.digitalplat.org -> domain.digitalplat.org） */
+  }
+  const parts = domain.split('.')
+  if (parts.length >= 3) {
+    const parentDomain = parts.slice(1).join('.')
+    const parentOrigin = `${new URL(origin).protocol}//${parentDomain}`
+    try {
+      const parentGoogleUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(parentDomain)}&sz=${size}`
+      const res = await fetchWithTimeout(parentGoogleUrl, { headers })
+      if (res.ok) {
+        const blob = await res.arrayBuffer()
+        const contentType = res.headers.get('Content-Type') || 'image/x-icon'
+        return new Response(blob, { headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' } })
+      }
+    } catch {
+      /* 继续试主域名静态路径 */
+    }
+    for (const path of ['/favicon.ico', '/apple-touch-icon.png']) {
+      try {
+        const res = await fetchWithTimeout(`${parentOrigin}${path}`, { headers: siteHeaders })
+        if (res.ok) {
+          const blob = await res.arrayBuffer()
+          const contentType = res.headers.get('Content-Type') || (path.endsWith('.ico') ? 'image/x-icon' : 'image/png')
+          return new Response(blob, { headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' } })
+        }
+      } catch {
+        /* 下一路径 */
+      }
+    }
   }
   const transparent1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
   return new Response(Uint8Array.from(atob(transparent1x1), (c) => c.charCodeAt(0)), {
