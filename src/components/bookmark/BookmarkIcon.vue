@@ -46,13 +46,6 @@ const iconSize = computed(() => {
   return s === 'lg' ? 40 : s === 'sm' ? 20 : 28
 })
 
-const healthClass = computed(() => {
-  const h = props.bookmark.health
-  if (h === 'error') return 'opacity-50 grayscale'
-  if (h === 'warn') return 'opacity-75'
-  return ''
-})
-
 /** 当前是否正在检测此书签 */
 const isChecking = computed(() => healthCheckStore.currentCheckingBookmarkId === props.bookmark.id)
 
@@ -120,13 +113,11 @@ function onIconError() {
         :width="iconSize"
         :height="iconSize"
         class="rounded-lg transition-all object-contain"
-        :class="healthClass"
         @error="onIconError"
       />
       <div
         v-else
         class="bookmark-letter rounded-lg flex items-center justify-center font-bold transition-all"
-        :class="healthClass"
         :style="{ width: `${iconSize}px`, height: `${iconSize}px`, fontSize: iconSize * 0.5 + 'px' }"
       >
         {{ fallbackLetter }}
