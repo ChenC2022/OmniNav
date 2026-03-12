@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OmniNav AI 助手</title>
+    <style>
+      :root {
+        --bg:             #ffffff;
+        --bg-muted:       #f3f4f6;
+        --bg-input:       #fafafa;
+        --border:         #e5e7eb;
+        --border-input:   #d1d5db;
+        --border-subtle:  #f3f4f6;
+        --text:           #111827;
+        --text-muted:     #6b7280;
+        --text-faint:     #9ca3af;
+        --badge-bg:       #f3f4f6;
+        --badge-text:     #6b7280;
+        --bubble-ai-bg:   #f3f4f6;
+        --bubble-ai-text: #1f2937;
+        --bubble-user-bg: #4f46e5;
+        --bubble-user-text: #ffffff;
+        --user-avatar-bg: #e0e7ff;
+        --scrollbar:      #d1d5db;
+        --error-color:    #b91c1c;
+        --usage-text:     #9ca3af;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg:             #1f2937;
+          --bg-muted:       #374151;
+          --bg-input:       #374151;
+          --border:         #374151;
+          --border-input:   #4b5563;
+          --border-subtle:  #374151;
+          --text:           #f9fafb;
+          --text-muted:     #9ca3af;
+          --text-faint:     #6b7280;
+          --badge-bg:       #374151;
+          --badge-text:     #9ca3af;
+          --bubble-ai-bg:   #374151;
+          --bubble-ai-text: #f3f4f6;
+          --bubble-user-bg: #4f46e5;
+          --bubble-user-text: #ffffff;
+          --user-avatar-bg: #3730a3;
+          --scrollbar:      #4b5563;
+          --error-color:    #fca5a5;
+          --usage-text:     #6b7280;
+        }
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); }
+      textarea:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 2px rgba(99,102,241,.25); }
+      #chat-list::-webkit-scrollbar { width: 4px; }
+      #chat-list::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 4px; }
+      /* 侧边栏输入区字体继承 */
+      textarea, button, select, input { font-family: ui-sans-serif, system-ui, sans-serif; }
+      /* Markdown 渲染基础样式 */
+      .md a { color: #818cf8; text-decoration: underline; word-break: break-all; }
+      .md a:hover { color: #a5b4fc; }
+      .md ul, .md ol { margin: 6px 0 6px 20px; padding: 0; }
+      .md ul { list-style: disc; }
+      .md ol { list-style: decimal; }
+      .md li { margin: 2px 0; line-height: 1.6; }
+      .md p { margin: 0 0 6px; line-height: 1.7; }
+      .md p:last-child { margin-bottom: 0; }
+      .md h1,.md h2,.md h3,.md h4 { font-weight: 700; margin: 10px 0 4px; }
+      .md h1 { font-size: 15px; }
+      .md h2 { font-size: 14px; }
+      .md h3 { font-size: 13px; }
+      .md code { background: var(--bg-muted); color: var(--text); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+      .md pre { background: #1e1e2e; color: #cdd6f4; padding: 12px 14px; border-radius: 8px;
+                overflow-x: auto; font-size: 12px; line-height: 1.6; margin: 8px 0; }
+      .md pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+      .md blockquote { border-left: 3px solid var(--border-input); margin: 6px 0; padding: 4px 12px; color: var(--text-muted); }
+      .md hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/ui/ai/main.ts"></script>
+  </body>
+</html>
+

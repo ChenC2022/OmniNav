@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OmniNav 设置</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --bg-muted: #f3f4f6;
+        --bg-input: #fafafa;
+        --border: #e5e7eb;
+        --text: #111827;
+        --text-muted: #4b5563;
+        --text-faint: #9ca3af;
+        --msg-bg: #f6f6f6;
+        --msg-border: #e5e5e5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1f2937;
+          --bg-muted: #374151;
+          --bg-input: #374151;
+          --border: #374151;
+          --text: #f9fafb;
+          --text-muted: #d1d5db;
+          --text-faint: #6b7280;
+          --msg-bg: #374151;
+          --msg-border: #4b5563;
+        }
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--bg); color: var(--text); }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/ui/options/main.ts"></script>
+  </body>
+</html>
