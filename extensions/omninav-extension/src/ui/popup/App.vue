@@ -24,6 +24,7 @@ const syncAt = ref<number | null>(null)
 const query = ref('')
 const message = ref<string | null>(null)
 const confirmState = ref<ConfirmState | null>(null)
+const baseUrl = ref<string>('')
 
 const bookmarkMap = computed(() => new Map(bookmarks.value.map((b) => [b.id, b])))
 
@@ -51,11 +52,16 @@ function fmtTime(ts: number | null): string {
 }
 
 async function loadData() {
-  const snap = (await getSyncSnapshot<Snapshot>()) ?? {}
-  bookmarks.value = Array.isArray(snap.bookmarks) ? (snap.bookmarks as Bookmark[]) : []
-  categories.value = Array.isArray(snap.categories) ? (snap.categories as Category[]) : []
-  pinnedIds.value = Array.isArray(snap.pinned) ? snap.pinned : []
+  const [snap, base] = await Promise.all([
+    getSyncSnapshot<Snapshot>(),
+    getBaseUrl(),
+  ])
+  const s = snap ?? {}
+  bookmarks.value = Array.isArray(s.bookmarks) ? (s.bookmarks as Bookmark[]) : []
+  categories.value = Array.isArray(s.categories) ? (s.categories as Category[]) : []
+  pinnedIds.value = Array.isArray(s.pinned) ? s.pinned : []
   syncAt.value = await getSyncAt()
+  baseUrl.value = base ?? ''
 }
 
 onMounted(async () => {
@@ -240,6 +246,7 @@ function onConfirmCancel() {
       <PinnedGrid
         v-if="pinnedBookmarks.length"
         :pinned-bookmarks="pinnedBookmarks"
+        :base-url="baseUrl"
         @open="openUrl"
       />
 

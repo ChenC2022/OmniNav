@@ -1,7 +1,7 @@
 {
   "name": "omninav",
   "private": true,
-  "version": "0.2.6",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,11 @@
     "dev:api": "vite build && wrangler pages dev dist --port 8789 --kv=KV_OMNINAV",
     "dev:all": "vite build && concurrently -n fe,api \"vite\" \"wrangler pages dev dist --port 8789 --kv=KV_OMNINAV\"",
     "deploy": "vite build && wrangler pages deploy dist --project-name=omninav",
-    "reset:prod": "./scripts/reset-production-kv.sh"
+    "reset:prod": "./scripts/reset-production-kv.sh",
+    "version:minor": "./scripts/bump-version.sh minor",
+    "version:major": "./scripts/bump-version.sh major",
+    "version:web-patch": "./scripts/bump-version.sh web-patch",
+    "version:ext-patch": "./scripts/bump-version.sh ext-patch"
   },
   "dependencies": {
     "@vueuse/core": "^10.7.0",

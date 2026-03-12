@@ -7,7 +7,7 @@ dist
 *.tsbuildinfo
 
 # 开发文档（仅本地保留，不随仓库公开）
-docs/
+# docs/ 目录已纳入版本控制
 
 # 删库重建一次性清单（仅本地使用）
 REBUILD_REPO_CHECKLIST.md

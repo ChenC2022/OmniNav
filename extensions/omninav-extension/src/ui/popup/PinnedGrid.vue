@@ -1,18 +1,61 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import type { Bookmark } from '../../shared/types'
 
-defineProps<{ pinnedBookmarks: Bookmark[] }>()
-
+const props = defineProps<{
+  pinnedBookmarks: Bookmark[]
+  baseUrl?: string
+}>()
 const emit = defineEmits<{ open: [url: string] }>()
 
-function faviconUrl(b: Bookmark): string {
-  if (b.favicon) return b.favicon
-  try {
-    const origin = new URL(b.url).origin
-    return `https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(origin)}`
-  } catch {
-    return ''
+// 降级阶段：custom → backend_proxy（后端/api/favicon代理）→ favicon_ico → letter
+type Stage = 'custom' | 'backend_proxy' | 'favicon_ico' | 'letter'
+const stages = ref<Map<string, Stage>>(new Map())
+
+function initStage(b: Bookmark): Stage {
+  return b.favicon?.trim() ? 'custom' : 'backend_proxy'
+}
+
+watch(
+  () => props.pinnedBookmarks,
+  (list) => {
+    list.forEach((b) => {
+      if (!stages.value.has(b.id)) {
+        stages.value.set(b.id, initStage(b))
+      }
+    })
+  },
+  { immediate: true }
+)
+
+function getSrc(b: Bookmark): string {
+  const stage = stages.value.get(b.id) ?? initStage(b)
+  if (stage === 'custom') return b.favicon?.trim() ?? ''
+  if (stage === 'backend_proxy') {
+    const base = props.baseUrl?.trim().replace(/\/+$/, '')
+    if (base) {
+      return `${base}/api/favicon?url=${encodeURIComponent(b.url)}&sz=32`
+    }
+    // baseUrl 未配置时直接跳 favicon_ico
+    try { return `${new URL(b.url).origin}/favicon.ico` } catch { return '' }
   }
+  if (stage === 'favicon_ico') {
+    try { return `${new URL(b.url).origin}/favicon.ico` } catch { return '' }
+  }
+  return '' // letter
+}
+
+function onError(b: Bookmark) {
+  const cur = stages.value.get(b.id) ?? initStage(b)
+  const next: Stage =
+    cur === 'custom'        ? 'backend_proxy' :
+    cur === 'backend_proxy' ? 'favicon_ico'   :
+    'letter'
+  stages.value.set(b.id, next)
+}
+
+function fallbackLetter(b: Bookmark): string {
+  return (b.title?.trim() || b.url || '?').charAt(0).toUpperCase()
 }
 </script>
 
@@ -28,15 +71,16 @@ function faviconUrl(b: Bookmark): string {
         @click="emit('open', b.url)"
       >
         <div class="favicon-wrap">
-          <img
-            v-if="faviconUrl(b)"
-            :src="faviconUrl(b)"
-            width="20"
-            height="20"
-            class="favicon-img"
-            @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
-          />
-          <span v-else class="favicon-fallback">🔖</span>
+          <template v-if="(stages.get(b.id) ?? 'google_s2') !== 'letter' && getSrc(b)">
+            <img
+              :src="getSrc(b)"
+              width="20"
+              height="20"
+              class="favicon-img"
+              @error="onError(b)"
+            />
+          </template>
+          <span v-else class="favicon-letter">{{ fallbackLetter(b) }}</span>
         </div>
         <div class="pinned-name">{{ b.title || b.url || '（无标题）' }}</div>
       </div>
@@ -57,8 +101,8 @@ function faviconUrl(b: Bookmark): string {
   margin-bottom: 6px;
 }
 .pinned-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 67px);
   gap: 2px;
 }
 .pinned-item {
@@ -69,8 +113,7 @@ function faviconUrl(b: Bookmark): string {
   cursor: pointer;
   padding: 6px 4px;
   border-radius: 10px;
-  min-width: 56px;
-  max-width: 68px;
+  width: 67px;
   transition: background 0.15s;
 }
 .pinned-item:hover {
@@ -90,9 +133,11 @@ function faviconUrl(b: Bookmark): string {
 .favicon-img {
   object-fit: contain;
 }
-.favicon-fallback {
-  font-size: 13px;
+.favicon-letter {
+  font-size: 14px;
+  font-weight: 600;
   color: var(--pinned-icon-color, #6b7280);
+  line-height: 1;
 }
 .pinned-name {
   font-size: 10px;
