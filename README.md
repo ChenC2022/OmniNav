@@ -70,8 +70,58 @@
 
 ---
 
+## 浏览器插件（Phase 2）
+
+OmniNav 提供配套的 Chrome / Edge 浏览器插件，实现随时唤起、随手检索、随手收藏、随手 AI 对话。
+
+### 功能
+
+- **快速检索**：Popup 搜索框本地检索书签（标题 / URL / 描述），结果显示分类徽章
+- **置顶便捷访问**：Popup 顶部展示置顶书签网格，一键点击打开
+- **快捷收藏**：
+  - Popup「收藏」按钮：AI 自动推荐分类 + 可编辑确认卡片后保存
+  - 右键菜单「添加到 OmniNav」：二级菜单，可选「自动分类」或「暂不分类」
+- **AI 对话（Side Panel）**：点击 AI 按钮打开右侧 Side Panel，与书签助手对话，支持 Markdown 渲染
+- **自动同步**：打开 Popup 时自动静默同步最新数据
+- **深色模式**：自动跟随系统外观（Popup 与 AI Side Panel 均支持）
+- **网页版入口**：底部按钮一键跳转 OmniNav 网页版进行书签管理
+
+### 安装与构建
+
+**前提**：已完成网页版部署，获得 Pages 域名（如 `https://xxx.pages.dev`）。
+
+```bash
+# 进入插件目录
+cd extensions/omninav-extension
+
+# 安装依赖
+npm install
+
+# 构建（产物输出至 extensions/dist/）
+npm run build
+```
+
+**加载插件（Chrome / Edge）**：
+
+1. 打开 `chrome://extensions/`，启用右上角**开发者模式**
+2. 点击**加载已解压的扩展程序**，选择 `extensions/dist/` 目录
+3. 插件图标出现在工具栏
+
+### 初始设置
+
+1. 打开插件**设置页**（右键工具栏图标 → 选项）
+2. 填写 **baseUrl**（你的 OmniNav Pages 域名，如 `https://xxx.pages.dev`）→ 点击**保存**
+3. 点击**授权站点权限**，在浏览器弹窗中确认授权
+4. 填写**登录密码** → 点击**登录**
+5. 点击**立即同步**，完成初始化
+
+设置完成后，点击工具栏插件图标即可打开 Popup 使用全部功能。
+
+---
+
 ## 文档
 
+- [Phase 2 插件开发计划](docs/PHASE2_BROWSER_EXTENSION_PLAN.md)
 - [更新日志](CHANGELOG.md)
 - [开源协议](LICENSE)（MIT）
 
