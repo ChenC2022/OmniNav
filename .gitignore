@@ -1,6 +1,7 @@
 node_modules
 dist
 .wrangler
+public/omninav-extension.zip
 .dev.vars
 *.log
 .DS_Store

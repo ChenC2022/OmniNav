@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:ext-zip": "./scripts/build-extension-zip.sh",
     "preview": "vite preview",
     "dev:api": "vite build && wrangler pages dev dist --port 8789 --kv=KV_OMNINAV",
     "dev:all": "vite build && concurrently -n fe,api \"vite\" \"wrangler pages dev dist --port 8789 --kv=KV_OMNINAV\"",
-    "deploy": "vite build && wrangler pages deploy dist --project-name=omninav",
+    "deploy": "npm run build:ext-zip && vite build && wrangler pages deploy dist --project-name=omninav",
     "reset:prod": "./scripts/reset-production-kv.sh",
     "version:minor": "./scripts/bump-version.sh minor",
     "version:major": "./scripts/bump-version.sh major",

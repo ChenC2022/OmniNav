@@ -718,6 +718,7 @@ const navItems = [
   { id: 'ai-chat', icon: 'auto_awesome', label: 'AI 助手' },
   { id: 'weather', icon: 'cloud', label: '天气位置' },
   { id: 'data', icon: 'import_export', label: '数据管理' },
+  { id: 'extension', icon: 'extension', label: '浏览器插件' },
   { id: 'about', icon: 'info', label: '关于' },
 ]
 </script>
@@ -1102,6 +1103,33 @@ const navItems = [
           >
             {{ clearAllLoading ? '清空中…' : '清空所有数据' }}
           </button>
+        </div>
+      </section>
+
+      <!-- ═══════ 浏览器插件 ═══════ -->
+      <section id="extension" class="settings-section-card bg-white rounded-xl border border-slate-200 dark:border-white/20 p-4 sm:p-6 md:p-8 mb-6 sm:mb-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <span class="material-symbols-outlined">extension</span>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 dark-text-94">浏览器插件</h2>
+            <p class="text-sm text-slate-500 dark-text-94">下载 OmniNav 配套扩展，随时检索书签、置顶与 AI 对话。</p>
+          </div>
+        </div>
+        <div class="p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+          <p class="text-sm text-slate-600 dark-text-94 mb-4">支持 Chrome / Edge。下载后解压，在浏览器中加载已解压的扩展程序即可。</p>
+          <a
+            href="/omninav-extension.zip"
+            download="omninav-extension.zip"
+            class="inline-flex items-center gap-2 py-3 px-5 bg-primary text-white font-bold rounded-xl hover:opacity-90 transition-opacity"
+          >
+            <span class="material-symbols-outlined">download</span>
+            下载插件包
+          </a>
+          <p class="mt-4 text-xs text-slate-500 dark-text-94">
+            安装步骤：打开 <code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700">chrome://extensions</code>（或 Edge 的 <code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700">edge://extensions</code>）→ 开启「开发者模式」→「加载已解压的扩展程序」→ 选择解压后的文件夹。
+          </p>
         </div>
       </section>
 

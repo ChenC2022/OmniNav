@@ -2,7 +2,6 @@
 
 由AI协助用户进行个人书签管理，数据与个人的Cloudflare KV同步，Cloudflare pages 零成本自部署。
 
-**版本**：v0.2.11
 
 ---
 <img width="2160" height="1238" alt="image" src="https://github.com/user-attachments/assets/d5fcd0eb-b394-4552-8694-7f1d7f139a3b" />
@@ -13,8 +12,7 @@
 
 - **零成本** —— Cloudflare pages 零成本自部署
 - **高智能** —— 用户可配置自己的AI大模型（可以是本地模型），由大模型按需分析URL和网站内容，进行自动分类
-- **高便利** —— 便利的全收藏信息检索（不仅是标签名称，还包含URL和AI概要）
-- **高安全** —— 数据仅存与用户个人的Cloudflare KV，本地可以设私密分类
+- **高便利** —— 提供网页版和插件，书签跨设备完全同步。
 
 ### 书签与分类
 
@@ -49,6 +47,7 @@
 - **数据管理**：
   - **OmniNav JSON**：完整导出/导入（书签、分类、置顶、配置）。
   - **清空数据**：清空所有数据并同步云端（需输入当前登录密码确认）。
+- **浏览器插件**：设置页可下载插件包（zip），解压后在 Chrome/Edge 中「加载已解压的扩展程序」即可安装。
 
 ### 其他
 
@@ -70,7 +69,7 @@
 
 ---
 
-## 浏览器插件（Phase 2）
+## 浏览器插件
 
 OmniNav 提供配套的 Chrome / Edge 浏览器插件，实现随时唤起、随手检索、随手收藏、随手 AI 对话。
 
@@ -90,6 +89,10 @@ OmniNav 提供配套的 Chrome / Edge 浏览器插件，实现随时唤起、随
 
 **前提**：已完成网页版部署，获得 Pages 域名（如 `https://xxx.pages.dev`）。
 
+**方式一（推荐）**：在网页版 **设置 → 浏览器插件** 中点击「下载插件包」，解压后在浏览器中加载已解压的扩展程序。部署时 `npm run deploy` 会自动构建并打包插件 zip（需已安装 `zip`，如 Ubuntu/Debian: `apt install zip`）。
+
+**方式二（本地构建）**：
+
 ```bash
 # 进入插件目录
 cd extensions/omninav-extension
@@ -97,14 +100,14 @@ cd extensions/omninav-extension
 # 安装依赖
 npm install
 
-# 构建（产物输出至 extensions/dist/）
+# 构建（产物输出至 extensions/omninav-extension/dist/）
 npm run build
 ```
 
 **加载插件（Chrome / Edge）**：
 
-1. 打开 `chrome://extensions/`，启用右上角**开发者模式**
-2. 点击**加载已解压的扩展程序**，选择 `extensions/dist/` 目录
+1. 打开 `chrome://extensions/`（或 Edge 的 `edge://extensions/`），启用右上角**开发者模式**
+2. 点击**加载已解压的扩展程序**，选择解压后的插件目录（或上述 `extensions/omninav-extension/dist/`）
 3. 插件图标出现在工具栏
 
 ### 初始设置
