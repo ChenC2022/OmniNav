@@ -64,9 +64,14 @@ async function loadData() {
   baseUrl.value = base ?? ''
 }
 
+const SYNC_THROTTLE_MS = 3 * 60 * 1000 // 3 分钟内不重复同步
+
 onMounted(async () => {
   await loadData()
-  // 静默同步
+  // 静默同步：3 分钟内有过同步记录则跳过，减少每次打开 popup 都触发网络请求
+  const now = Date.now()
+  const lastSync = syncAt.value
+  if (lastSync && now - lastSync < SYNC_THROTTLE_MS) return
   chrome.runtime.sendMessage({ type: 'sync' })
     .then(async (r) => {
       const resp = r as ApiResp

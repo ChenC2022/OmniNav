@@ -623,6 +623,25 @@ app.put('/data/pinned', async (c) => {
   return c.json({ ok: true })
 })
 
+// GET /api/data/snapshot（扩展专用：一次鉴权并发读取 bookmarks/categories/pinned，减少跨境 RTT）
+app.get('/data/snapshot', async (c) => {
+  const kv = c.env.KV_OMNINAV
+  if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
+  const [bookmarks, categories, pinned] = await Promise.all([
+    getJson<unknown[]>(kv, 'bookmarks'),
+    getJson<unknown[]>(kv, 'categories'),
+    getJson<string[]>(kv, 'pinned'),
+  ])
+  return c.json({
+    ok: true,
+    data: {
+      bookmarks: bookmarks ?? [],
+      categories: categories ?? [],
+      pinned: pinned ?? [],
+    },
+  })
+})
+
 // GET/PUT /api/data/settings（返回时脱敏 api_key）
 app.get('/data/settings', async (c) => {
   const kv = c.env.KV_OMNINAV

@@ -71,22 +71,17 @@ export async function addBookmarkExt(
 }
 
 export async function fetchSnapshot(): Promise<ApiResponse<SyncSnapshot>> {
-  const [bookmarks, categories, pinned] = await Promise.all([
-    apiFetch<unknown[]>('/api/data/bookmarks'),
-    apiFetch<unknown[]>('/api/data/categories'),
-    apiFetch<string[]>('/api/data/pinned'),
-  ])
-
-  if (!bookmarks.ok) return { ok: false, error: bookmarks.error }
-  if (!categories.ok) return { ok: false, error: categories.error }
-  if (!pinned.ok) return { ok: false, error: pinned.error }
-
+  const r = await apiFetch<{ bookmarks: unknown[]; categories: unknown[]; pinned: string[] }>(
+    '/api/data/snapshot'
+  )
+  if (!r.ok) return { ok: false, error: r.error }
+  const d = r.data ?? { bookmarks: [], categories: [], pinned: [] }
   return {
     ok: true,
     data: {
-      bookmarks: (bookmarks.data ?? []) as unknown[],
-      categories: (categories.data ?? []) as unknown[],
-      pinned: (pinned.data ?? []) as string[],
+      bookmarks: Array.isArray(d.bookmarks) ? d.bookmarks : [],
+      categories: Array.isArray(d.categories) ? d.categories : [],
+      pinned: Array.isArray(d.pinned) ? d.pinned : [],
     },
   }
 }
