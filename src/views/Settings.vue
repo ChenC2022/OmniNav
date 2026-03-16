@@ -360,6 +360,129 @@ function cancelImport() {
   importError.value = ''
 }
 
+// ─── 云端快照备份 ───
+interface BackupItem { key: string; date: string }
+interface BackupSnapshot {
+  bookmarks: unknown[]
+  categories: unknown[]
+  pinned: string[]
+  createdAt: string
+}
+
+const backupList = ref<BackupItem[]>([])
+const backupListLoading = ref(false)
+const backupRestoreLoading = ref<string | null>(null)
+const backupDeleteLoading = ref<string | null>(null)
+const backupError = ref('')
+const backupRestoreConfirm = ref<BackupItem | null>(null)
+
+async function loadBackupList() {
+  backupListLoading.value = true
+  backupError.value = ''
+  try {
+    const res = await apiFetch('/api/data/backups')
+    const json = await res.json() as { ok: boolean; data?: BackupItem[] }
+    if (json.ok && Array.isArray(json.data)) backupList.value = json.data
+    else backupError.value = '获取快照列表失败'
+  } catch {
+    backupError.value = '网络错误'
+  } finally {
+    backupListLoading.value = false
+  }
+}
+
+async function restoreBackup(item: BackupItem) {
+  backupRestoreLoading.value = item.date
+  backupError.value = ''
+  try {
+    const res = await apiFetch(`/api/data/backups/${item.date}`)
+    const json = await res.json() as { ok: boolean; data?: BackupSnapshot }
+    if (!json.ok || !json.data) { backupError.value = '获取快照数据失败'; return }
+    const snap = json.data
+    const importedCategories = (snap.categories ?? []) as import('@/types').Category[]
+    const importedBookmarks = (snap.bookmarks ?? []) as import('@/types').Bookmark[]
+    const definedCatIds = new Set(importedCategories.map((c) => c.id))
+    const orphanCatIds = new Set<string>()
+    for (const bm of importedBookmarks) {
+      if (bm.categoryId && !definedCatIds.has(bm.categoryId)) orphanCatIds.add(bm.categoryId)
+    }
+    const finalCategories = [...importedCategories]
+    let order = importedCategories.length
+    for (const orphanId of orphanCatIds) {
+      finalCategories.push({ id: orphanId, name: `分类_${orphanId.slice(0, 6)}`, order: order++ })
+    }
+    bookmarksStore.setBookmarks(importedBookmarks)
+    categoriesStore.setCategories(finalCategories)
+    pinnedStore.setIds(snap.pinned ?? [])
+    await saveBookmarks?.()
+    await saveCategories?.()
+    await savePinned?.()
+    backupRestoreConfirm.value = null
+  } catch (err) {
+    backupError.value = err instanceof Error ? err.message : '恢复失败'
+  } finally {
+    backupRestoreLoading.value = null
+  }
+}
+
+async function deleteBackup(item: BackupItem) {
+  backupDeleteLoading.value = item.date
+  backupError.value = ''
+  try {
+    await apiFetch(`/api/data/backups/${item.date}`, { method: 'DELETE' })
+    backupList.value = backupList.value.filter((b) => b.date !== item.date)
+  } catch {
+    backupError.value = '删除失败'
+  } finally {
+    backupDeleteLoading.value = null
+  }
+}
+
+async function createBackupNow() {
+  backupError.value = ''
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    // 强制写入（先删再创）
+    await apiFetch(`/api/data/backups/${today}`, { method: 'DELETE' })
+    localStorage.removeItem('omninav:last_backup_date')
+    const res = await apiFetch('/api/data/backups', { method: 'POST' })
+    const json = await res.json() as { ok: boolean }
+    if (json.ok) {
+      localStorage.setItem('omninav:last_backup_date', today)
+      await loadBackupList()
+    }
+  } catch {
+    backupError.value = '创建快照失败'
+  }
+}
+
+onMounted(() => { loadBackupList() })
+
+// ─── 30天本地提醒下载 ───
+const showDownloadReminder = ref(false)
+const REMINDER_KEY = 'omninav:last_export_date'
+const REMINDER_DAYS = 30
+
+function checkDownloadReminder() {
+  const last = localStorage.getItem(REMINDER_KEY)
+  if (!last) { showDownloadReminder.value = true; return }
+  const diff = (Date.now() - new Date(last).getTime()) / 86400000
+  if (diff >= REMINDER_DAYS) showDownloadReminder.value = true
+}
+
+function exportDataWithReminder() {
+  exportData()
+  localStorage.setItem(REMINDER_KEY, new Date().toISOString().slice(0, 10))
+  showDownloadReminder.value = false
+}
+
+function dismissReminder() {
+  localStorage.setItem(REMINDER_KEY, new Date().toISOString().slice(0, 10))
+  showDownloadReminder.value = false
+}
+
+onMounted(() => { checkDownloadReminder() })
+
 // ─── 清空数据 ───
 const clearAllConfirm = ref(false)
 const clearAllLoading = ref(false)
@@ -1069,6 +1192,77 @@ const navItems = [
         <input ref="importFileInput" type="file" accept=".json,application/json" class="hidden" @change="onImportFile" />
         <p v-if="importError" class="mt-4 text-sm text-red-500 dark:text-red-400">{{ importError }}</p>
 
+        <!-- 30天提醒下载横幅 -->
+        <div v-if="showDownloadReminder" class="mt-4 flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
+          <span class="material-symbols-outlined text-amber-500 mt-0.5 shrink-0">notifications</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-amber-800 dark:text-amber-300">距上次本地备份已超过 {{ REMINDER_DAYS }} 天</p>
+            <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">建议定期将数据导出到本地，作为离线保底备份。</p>
+          </div>
+          <div class="flex gap-2 shrink-0">
+            <button type="button" class="px-3 py-1.5 text-xs font-bold bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors" @click="exportDataWithReminder">立即导出</button>
+            <button type="button" class="px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition-colors" @click="dismissReminder">忽略</button>
+          </div>
+        </div>
+
+        <!-- 云端自动快照 -->
+        <div class="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
+          <div class="flex items-center justify-between mb-1">
+            <h3 class="text-sm font-semibold text-slate-700 dark-text-94 flex items-center gap-2">
+              <span class="material-symbols-outlined text-lg text-primary">cloud_done</span>
+              云端自动快照
+            </h3>
+            <button
+              type="button"
+              class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
+              @click="createBackupNow"
+            >
+              <span class="material-symbols-outlined text-sm">add_circle</span>
+              立即创建
+            </button>
+          </div>
+          <p class="text-xs text-slate-500 dark-text-94 mb-4">每天首次打开页面自动保存一份快照到云端，最多保留 7 天。可随时一键恢复到任意历史状态。</p>
+
+          <p v-if="backupError" class="mb-3 text-sm text-red-500 dark:text-red-400">{{ backupError }}</p>
+
+          <div v-if="backupListLoading" class="flex items-center gap-2 text-sm text-slate-400 py-4">
+            <span class="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+            加载中…
+          </div>
+          <div v-else-if="backupList.length === 0" class="py-6 text-center text-sm text-slate-400 dark:text-slate-600">
+            <span class="material-symbols-outlined text-3xl block mb-2">cloud_off</span>
+            暂无快照，下次访问页面时将自动创建
+          </div>
+          <ul v-else class="space-y-2">
+            <li
+              v-for="item in backupList"
+              :key="item.date"
+              class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"
+            >
+              <span class="material-symbols-outlined text-primary text-xl shrink-0">cloud_circle</span>
+              <span class="flex-1 text-sm font-medium text-slate-700 dark-text-94">{{ item.date }}</span>
+              <button
+                type="button"
+                class="flex items-center gap-1 px-3 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors disabled:opacity-50"
+                :disabled="backupRestoreLoading === item.date"
+                @click="backupRestoreConfirm = item"
+              >
+                <span class="material-symbols-outlined text-sm">restore</span>
+                {{ backupRestoreLoading === item.date ? '恢复中…' : '恢复' }}
+              </button>
+              <button
+                type="button"
+                class="flex items-center gap-1 px-3 py-1 text-xs font-medium text-red-500 dark:text-red-400 border border-red-200 dark:border-red-800/50 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+                :disabled="backupDeleteLoading === item.date"
+                @click="deleteBackup(item)"
+              >
+                <span class="material-symbols-outlined text-sm">delete</span>
+                {{ backupDeleteLoading === item.date ? '删除中…' : '' }}
+              </button>
+            </li>
+          </ul>
+        </div>
+
         <!-- 浏览器书签 -->
         <div class="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
           <h3 class="text-sm font-semibold text-slate-700 dark-text-94 mb-1 flex items-center gap-2">
@@ -1266,6 +1460,37 @@ const navItems = [
               <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10" @click="cancelSunPanelImport">取消</button>
               <button type="button" class="px-3 py-1.5 rounded-xl bg-indigo-500 dark:bg-indigo-400 text-white font-medium hover:bg-indigo-600 dark:hover:bg-indigo-300 disabled:opacity-50" :disabled="sunPanelImportLoading" @click="confirmSunPanelImport">
                 {{ sunPanelImportLoading ? '导入中…' : '确认导入' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+      <!-- 快照恢复确认 -->
+      <Transition name="modal">
+        <div
+          v-if="backupRestoreConfirm"
+          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          @click.self="backupRestoreConfirm = null"
+        >
+          <div
+            class="settings-modal-card w-full max-w-sm rounded-xl bg-white dark:bg-slate-900 shadow-xl p-5 border border-slate-200 dark:border-white/20"
+            @click.stop
+          >
+            <h3 class="text-lg font-medium text-slate-800 dark-text-94 mb-2">确认恢复快照</h3>
+            <p class="text-sm text-slate-600 dark-text-94 mb-4">
+              将用 <strong class="text-primary">{{ backupRestoreConfirm?.date }}</strong> 的快照覆盖当前所有书签、分类与置顶数据，并同步到云端。此操作不可撤销，是否继续？
+            </p>
+            <div class="flex justify-end gap-2">
+              <button type="button" class="px-3 py-1.5 rounded-xl text-slate-600 dark-text-94 hover:bg-slate-200/50 dark:hover:bg-white/10" @click="backupRestoreConfirm = null">取消</button>
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-xl bg-indigo-500 dark:bg-indigo-400 text-white font-medium hover:bg-indigo-600 dark:hover:bg-indigo-300 disabled:opacity-50"
+                :disabled="backupRestoreLoading !== null"
+                @click="backupRestoreConfirm && restoreBackup(backupRestoreConfirm)"
+              >
+                {{ backupRestoreLoading ? '恢复中…' : '确认恢复' }}
               </button>
             </div>
           </div>

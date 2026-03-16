@@ -79,9 +79,25 @@ export function useDataSync() {
 
     // 仅在书签加载成功时清理置顶中的失效 ID，避免书签请求失败时误把置顶清空并写回服务器导致刷新后置顶消失
     if (bRes.ok) cleanOrphanedPinned()
+
+    // 每日自动快照：数据加载成功后在后台静默触发，失败不影响主流程
+    if (bRes.ok && cRes.ok) triggerDailyBackup()
     } finally {
       syncStore.setIdle()
     }
+  }
+
+  function triggerDailyBackup() {
+    const today = new Date().toISOString().slice(0, 10)
+    const lastBackupKey = 'omninav:last_backup_date'
+    const lastDate = localStorage.getItem(lastBackupKey)
+    if (lastDate === today) return
+    apiFetch('/api/data/backups', { method: 'POST' })
+      .then((res) => res.json())
+      .then((json: { ok: boolean; skipped?: boolean }) => {
+        if (json.ok) localStorage.setItem(lastBackupKey, today)
+      })
+      .catch(() => {})
   }
 
   function cleanOrphanedPinned() {

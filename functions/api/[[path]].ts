@@ -623,6 +623,91 @@ app.put('/data/pinned', async (c) => {
   return c.json({ ok: true })
 })
 
+// ─── 自动备份快照 API ───
+// KV key 格式：backup:<YYYY-MM-DD>  值：{ bookmarks, categories, pinned, createdAt }
+// 最多保留 MAX_BACKUPS 份，超出时自动删除最旧的
+
+const MAX_BACKUPS = 7
+const BACKUP_KEY_PREFIX = 'backup:'
+
+interface BackupSnapshot {
+  bookmarks: unknown[]
+  categories: unknown[]
+  pinned: string[]
+  createdAt: string
+}
+
+// GET /api/data/backups — 列出所有快照（仅返回元数据，不含完整数据）
+app.get('/data/backups', async (c) => {
+  const kv = c.env.KV_OMNINAV
+  if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
+  const list = await kv.list({ prefix: BACKUP_KEY_PREFIX })
+  const items = list.keys.map((k) => ({
+    key: k.name,
+    date: k.name.replace(BACKUP_KEY_PREFIX, ''),
+  })).sort((a, b) => b.date.localeCompare(a.date))
+  return c.json({ ok: true, data: items })
+})
+
+// GET /api/data/backups/:date — 获取指定日期的快照完整数据
+app.get('/data/backups/:date', async (c) => {
+  const kv = c.env.KV_OMNINAV
+  if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
+  const date = c.req.param('date')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json({ ok: false, error: 'Invalid date format' }, 400)
+  const data = await getJson<BackupSnapshot>(kv, `${BACKUP_KEY_PREFIX}${date}`)
+  if (!data) return c.json({ ok: false, error: 'Backup not found' }, 404)
+  return c.json({ ok: true, data })
+})
+
+// POST /api/data/backups — 创建快照（前端每日调用一次）
+app.post('/data/backups', async (c) => {
+  const kv = c.env.KV_OMNINAV
+  if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
+
+  const today = new Date().toISOString().slice(0, 10)
+  const key = `${BACKUP_KEY_PREFIX}${today}`
+
+  // 今天已有快照则跳过（幂等）
+  const existing = await kv.get(key)
+  if (existing) return c.json({ ok: true, skipped: true, date: today })
+
+  const [bookmarks, categories, pinned] = await Promise.all([
+    getJson<unknown[]>(kv, 'bookmarks'),
+    getJson<unknown[]>(kv, 'categories'),
+    getJson<string[]>(kv, 'pinned'),
+  ])
+
+  const snapshot: BackupSnapshot = {
+    bookmarks: bookmarks ?? [],
+    categories: categories ?? [],
+    pinned: pinned ?? [],
+    createdAt: new Date().toISOString(),
+  }
+
+  await kv.put(key, JSON.stringify(snapshot))
+
+  // 超出上限时删除最旧的快照
+  const list = await kv.list({ prefix: BACKUP_KEY_PREFIX })
+  const allKeys = list.keys.map((k) => k.name).sort()
+  if (allKeys.length > MAX_BACKUPS) {
+    const toDelete = allKeys.slice(0, allKeys.length - MAX_BACKUPS)
+    await Promise.all(toDelete.map((k) => kv.delete(k)))
+  }
+
+  return c.json({ ok: true, skipped: false, date: today })
+})
+
+// DELETE /api/data/backups/:date — 删除指定快照
+app.delete('/data/backups/:date', async (c) => {
+  const kv = c.env.KV_OMNINAV
+  if (!kv) return c.json({ ok: false, error: 'KV not available' }, 503)
+  const date = c.req.param('date')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json({ ok: false, error: 'Invalid date format' }, 400)
+  await kv.delete(`${BACKUP_KEY_PREFIX}${date}`)
+  return c.json({ ok: true })
+})
+
 // GET /api/data/snapshot（扩展专用：一次鉴权并发读取 bookmarks/categories/pinned，减少跨境 RTT）
 app.get('/data/snapshot', async (c) => {
   const kv = c.env.KV_OMNINAV
