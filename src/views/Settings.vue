@@ -319,8 +319,26 @@ async function confirmImport() {
   if (!importPending) return
   importError.value = ''
   try {
-    bookmarksStore.setBookmarks(importPending.bookmarks as Bookmark[])
-    categoriesStore.setCategories(importPending.categories as Category[])
+    const importedCategories = importPending.categories as Category[]
+    const importedBookmarks = importPending.bookmarks as Bookmark[]
+
+    // 检查书签中引用的 categoryId 是否都在 categories 中存在，
+    // 若有孤儿 categoryId（categories 数据不完整），自动补充为"未分类"以防止书签丢失
+    const definedCatIds = new Set(importedCategories.map((c) => c.id))
+    const orphanCatIds = new Set<string>()
+    for (const bm of importedBookmarks) {
+      if (bm.categoryId && !definedCatIds.has(bm.categoryId)) {
+        orphanCatIds.add(bm.categoryId)
+      }
+    }
+    const finalCategories = [...importedCategories]
+    let order = importedCategories.length
+    for (const orphanId of orphanCatIds) {
+      finalCategories.push({ id: orphanId, name: `分类_${orphanId.slice(0, 6)}`, order: order++ })
+    }
+
+    bookmarksStore.setBookmarks(importedBookmarks)
+    categoriesStore.setCategories(finalCategories)
     pinnedStore.setIds(importPending.pinned)
     await saveBookmarks?.()
     await saveCategories?.()
