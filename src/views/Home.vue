@@ -11,7 +11,6 @@ import type { Bookmark, Category } from '@/types'
 import BookmarkIcon from '@/components/bookmark/BookmarkIcon.vue'
 import CategoryCard from '@/components/category/CategoryCard.vue'
 import CategoryForm from '@/components/category/CategoryForm.vue'
-import SearchBar from '@/components/search/SearchBar.vue'
 import QuickPasteBar from '@/components/quick-add/QuickPasteBar.vue'
 import { useHealthCheck } from '@/composables/useHealthCheck'
 import { nanoid } from '@/utils/id'
@@ -1128,13 +1127,6 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
       <p v-if="pinnedBookmarks.length === 0" class="text-sm text-slate-500 dark:text-white/90 mt-4">
         暂无置顶，可通过分类内书签右键「添加到置顶」添加；开启「拖动书签」后可拖拽调整顺序
       </p>
-    </section>
-
-    <!-- 搜索栏：置顶下方、分类上方 -->
-    <section class="mb-6 sm:mb-8 w-full flex justify-center">
-      <div class="w-full min-w-0 max-w-2xl px-2 sm:px-0">
-        <SearchBar full-width />
-      </div>
     </section>
 
     <section class="categories">

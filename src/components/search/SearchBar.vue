@@ -24,8 +24,10 @@ const props = withDefaults(
   defineProps<{
     /** 为 true 时占满容器宽度、无左右外边距（用于首页移动端搜索栏） */
     fullWidth?: boolean
+    /** 为 true 时在挂载后自动聚焦输入框（用于弹出式搜索） */
+    autoFocus?: boolean
   }>(),
-  { fullWidth: false }
+  { fullWidth: false, autoFocus: false }
 )
 
 const query = ref('')
@@ -141,6 +143,15 @@ function onDocumentKeydown(e: KeyboardEvent) {
 }
 onMounted(() => document.addEventListener('keydown', onDocumentKeydown, true))
 onUnmounted(() => document.removeEventListener('keydown', onDocumentKeydown, true))
+
+watch(
+  () => props.autoFocus,
+  (v) => {
+    if (!v) return
+    nextTick(() => inputEl.value?.focus())
+  },
+  { immediate: true }
+)
 
 async function selectEngine(id: string) {
   settings.patchSettings({ defaultSearchEngine: id })
