@@ -76,7 +76,7 @@ function openQuickAdd() {
         </div>
       </div>
 
-      <div v-if="isHome" class="header-center flex-1 min-w-0 overflow-hidden px-1 sm:px-2 md:px-2 lg:px-4">
+      <div v-if="isHome" class="header-center flex-1 min-w-0 px-1 sm:px-2 md:px-2 lg:px-4">
         <div class="w-full min-w-0 max-w-2xl mx-auto">
           <div class="hidden sm:block">
             <SearchBar full-width />
