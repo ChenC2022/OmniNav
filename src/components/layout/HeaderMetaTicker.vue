@@ -21,9 +21,14 @@ const weatherText = computed(() => {
   return condition.value ? `${condition.value} ${tempText}` : tempText
 })
 
-const secondaryItems = computed(() => [dateWeekText.value, weatherText.value])
-const secondaryText = computed(() => secondaryItems.value[tickerIndex.value % secondaryItems.value.length] ?? '')
-const showingWeather = computed(() => (tickerIndex.value % secondaryItems.value.length) === 1)
+const groupIndex = computed(() => tickerIndex.value % 3)
+const showingWeatherIcon = computed(() => groupIndex.value === 1 && !!icon.value && !loading.value && !error.value)
+const showingCityTime = computed(() => groupIndex.value === 0)
+const showingWeatherGroup = computed(() => groupIndex.value === 1)
+
+function isCityConfigured() {
+  return settings.data.weather?.lat != null && settings.data.weather?.lon != null
+}
 
 let minuteIntervalId: ReturnType<typeof setInterval> | null = null
 let minuteTimeoutId: ReturnType<typeof setTimeout> | null = null
@@ -86,17 +91,17 @@ async function applyAutoLocation() {
   cityName.value = ''
   if (!navigator.geolocation?.getCurrentPosition) {
     await fetchWeather(39.9, 116.4)
-    if (settings.data.weather?.mode === 'city') return
+    if (isCityConfigured()) return
     cityName.value = '北京'
     return
   }
   navigator.geolocation.getCurrentPosition(
     async (pos) => {
-      if (settings.data.weather?.mode === 'city') return
+      if (isCityConfigured()) return
       const lat = pos.coords.latitude
       const lon = pos.coords.longitude
       await fetchWeather(lat, lon)
-      if (settings.data.weather?.mode === 'city') return
+      if (isCityConfigured()) return
       try {
         const r = await fetch(`/api/reverse-geocode?lat=${lat}&lon=${lon}`)
         const j = await r.json().catch(() => ({}))
@@ -106,9 +111,9 @@ async function applyAutoLocation() {
       }
     },
     async () => {
-      if (settings.data.weather?.mode === 'city') return
+      if (isCityConfigured()) return
       await fetchWeather(39.9, 116.4)
-      if (settings.data.weather?.mode === 'city') return
+      if (isCityConfigured()) return
       cityName.value = '北京'
     }
   )
@@ -138,7 +143,7 @@ onMounted(() => {
   document.addEventListener('visibilitychange', onVisibilityChange)
 
   const w = settings.data.weather
-  if (w?.mode === 'city' && w?.lat != null && w?.lon != null) {
+  if (w?.lat != null && w?.lon != null) {
     cityName.value = w.cityName ?? ''
     fetchWeather(w.lat, w.lon)
   } else {
@@ -146,7 +151,7 @@ onMounted(() => {
   }
 
   tickerIntervalId = setInterval(() => {
-    tickerIndex.value = (tickerIndex.value + 1) % secondaryItems.value.length
+    tickerIndex.value = (tickerIndex.value + 1) % 3
   }, 8000)
 })
 
@@ -163,7 +168,7 @@ watch(
       applyAutoLocation()
       return
     }
-    if (w.mode === 'city') {
+    if (w.lat != null && w.lon != null) {
       applyCityLocation(w)
     } else {
       applyAutoLocation()
@@ -175,19 +180,35 @@ watch(
 
 <template>
   <!-- 固定占位宽度，避免轮播文本长短导致 header 抖动、影响搜索栏宽度 -->
-  <div class="inline-flex items-center gap-2 w-[14rem] min-w-[14rem] text-slate-700 dark-text-94">
-    <span v-if="cityName" class="text-sm font-medium truncate max-w-[4.5rem]" :title="cityName">{{ cityName }}</span>
-    <span class="text-sm font-bold tabular-nums shrink-0" :title="timeText">{{ timeText }}</span>
-    <span class="text-slate-400 dark:text-slate-500 shrink-0">·</span>
-    <span class="inline-flex items-center gap-1 w-[8.5rem] min-w-0 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+  <div class="inline-flex items-center gap-1 w-[8rem] min-w-[8rem] text-slate-700 dark-text-94">
+    <template v-if="showingCityTime">
       <span
-        v-if="showingWeather && icon && !loading && !error"
+        v-if="cityName"
+        class="text-sm font-medium truncate max-w-[6rem]"
+        :title="cityName"
+      >
+        {{ cityName }}
+      </span>
+      <span class="text-sm font-bold tabular-nums shrink-0" :title="timeText">{{ timeText }}</span>
+    </template>
+
+    <template v-else-if="showingWeatherGroup">
+      <span
+        v-if="showingWeatherIcon"
         class="material-symbols-outlined text-[16px] shrink-0"
         aria-hidden="true"
       >
         {{ icon }}
       </span>
-      <span class="truncate" :title="secondaryText">{{ secondaryText }}</span>
-    </span>
+      <span class="truncate w-full text-xs sm:text-sm text-slate-500 dark:text-slate-400" :title="weatherText">
+        {{ weatherText }}
+      </span>
+    </template>
+
+    <template v-else>
+      <span class="truncate w-full text-sm text-slate-500 dark:text-slate-400" :title="dateWeekText">
+        {{ dateWeekText }}
+      </span>
+    </template>
   </div>
 </template>
