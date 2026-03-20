@@ -241,7 +241,7 @@ function openQuickAdd() {
         @click.self="closeMobileSearch"
       >
         <div
-          class="w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-white/20 bg-white/95 dark:bg-white/5 backdrop-blur-xl overflow-hidden"
+          class="w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-white/20 bg-white/95 dark:bg-white/5 backdrop-blur-xl overflow-visible"
           @click.stop
         >
           <div class="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
