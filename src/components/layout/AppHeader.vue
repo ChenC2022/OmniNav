@@ -105,7 +105,7 @@ function openQuickAdd() {
             :aria-pressed="ui.isEditLayout"
             :class="
               ui.isEditLayout
-                ? 'border-primary bg-primary/5 text-primary hover:bg-primary/10 dark:hover:bg-primary/10'
+                ? '!border-red-500 !bg-red-500/10 !text-red-400 hover:!bg-red-500/20 dark:!border-red-400/70 dark:!bg-red-400/10 dark:!text-red-300 dark:hover:!bg-red-400/20'
                 : ''
             "
             @click="ui.isEditLayout = !ui.isEditLayout"
